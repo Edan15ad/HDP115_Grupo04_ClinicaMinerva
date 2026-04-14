@@ -1,0 +1,235 @@
+-- ============================================
+-- SISTEMA DE LABORATORIO CLINICO
+-- PostgreSQL 17
+-- ============================================
+
+-- Ejecutar esto aparte si la base aún no existe:
+-- CREATE DATABASE SGEMinerva;
+
+-- Luego conéctate a SGEMinerva y ejecuta lo siguiente:
+
+DROP TABLE IF EXISTS envios_correo CASCADE;
+DROP TABLE IF EXISTS resultados CASCADE;
+DROP TABLE IF EXISTS parametros_resultado CASCADE;
+DROP TABLE IF EXISTS detalle_ordenes CASCADE;
+DROP TABLE IF EXISTS ordenes CASCADE;
+DROP TABLE IF EXISTS citas CASCADE;
+DROP TABLE IF EXISTS examenes CASCADE;
+DROP TABLE IF EXISTS pacientes CASCADE;
+DROP TABLE IF EXISTS usuarios CASCADE;
+
+-- ============================================
+-- 1. USUARIOS
+-- ============================================
+CREATE TABLE usuarios (
+    id BIGSERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    apellido VARCHAR(50) NOT NULL,
+    correo VARCHAR(100) NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    rol VARCHAR(20) NOT NULL
+        CHECK (rol IN ('paciente', 'recepcionista', 'laboratorio', 'administrador')),
+    estado VARCHAR(20) NOT NULL DEFAULT 'activo'
+        CHECK (estado IN ('activo', 'inactivo')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- 2. PACIENTES
+-- ============================================
+CREATE TABLE pacientes (
+    id BIGSERIAL PRIMARY KEY,
+    usuario_id BIGINT NOT NULL UNIQUE,
+    nombres VARCHAR(60) NOT NULL,
+    apellidos VARCHAR(60) NOT NULL,
+    dui VARCHAR(9) UNIQUE,
+    fecha_nacimiento DATE,
+    genero VARCHAR(20),
+    telefono VARCHAR(8),
+    direccion VARCHAR(150),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_pacientes_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================
+-- 3. EXAMENES
+-- ============================================
+CREATE TABLE examenes (
+    id BIGSERIAL PRIMARY KEY,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(150),
+    precio DECIMAL(10,2) NOT NULL CHECK (precio >= 0),
+    tiempo_entrega_horas INT NOT NULL DEFAULT 24 CHECK (tiempo_entrega_horas > 0),
+    estado VARCHAR(20) NOT NULL DEFAULT 'activo'
+        CHECK (estado IN ('activo', 'inactivo')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- 4. CITAS
+-- ============================================
+CREATE TABLE citas (
+    id BIGSERIAL PRIMARY KEY,
+    paciente_id BIGINT NOT NULL,
+    fecha_cita DATE NOT NULL,
+    hora_cita TIME NOT NULL,
+    estado VARCHAR(20) NOT NULL DEFAULT 'agendada'
+        CHECK (estado IN ('agendada', 'confirmada', 'muestra_tomada', 'en_laboratorio', 'finalizada', 'cancelada')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_citas_paciente
+        FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_hora_cita_rango
+        CHECK (hora_cita >= TIME '08:00:00' AND hora_cita <= TIME '19:00:00')
+);
+
+CREATE UNIQUE INDEX ux_citas_paciente_fecha_hora
+ON citas(paciente_id, fecha_cita, hora_cita);
+
+CREATE INDEX ix_citas_fecha_hora
+ON citas(fecha_cita, hora_cita);
+
+-- ============================================
+-- 5. ORDENES
+-- ============================================
+CREATE TABLE ordenes (
+    id BIGSERIAL PRIMARY KEY,
+    correlativo VARCHAR(20) NOT NULL UNIQUE,
+    cita_id BIGINT NOT NULL UNIQUE,
+    paciente_id BIGINT NOT NULL,
+    fecha_orden TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente'
+        CHECK (estado IN ('pendiente', 'recepcionado', 'en_laboratorio', 'finalizado', 'entregado', 'cancelado')),
+    total DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (total >= 0),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ordenes_cita
+        FOREIGN KEY (cita_id) REFERENCES citas(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_ordenes_paciente
+        FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX ix_ordenes_paciente
+ON ordenes(paciente_id);
+
+CREATE INDEX ix_ordenes_estado
+ON ordenes(estado);
+
+-- ============================================
+-- 6. DETALLE_ORDENES
+-- ============================================
+CREATE TABLE detalle_ordenes (
+    id BIGSERIAL PRIMARY KEY,
+    orden_id BIGINT NOT NULL,
+    examen_id BIGINT NOT NULL,
+    precio_unitario DECIMAL(10,2) NOT NULL CHECK (precio_unitario >= 0),
+    estado VARCHAR(20) NOT NULL DEFAULT 'pendiente'
+        CHECK (estado IN ('pendiente', 'muestra_tomada', 'en_proceso', 'finalizado', 'cancelado')),
+    fecha_muestra TIMESTAMP,
+    observaciones VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_detalle_ordenes_orden
+        FOREIGN KEY (orden_id) REFERENCES ordenes(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_detalle_ordenes_examen
+        FOREIGN KEY (examen_id) REFERENCES examenes(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX ix_detalle_ordenes_orden
+ON detalle_ordenes(orden_id);
+
+CREATE INDEX ix_detalle_ordenes_examen
+ON detalle_ordenes(examen_id);
+
+CREATE INDEX ix_detalle_ordenes_estado
+ON detalle_ordenes(estado);
+
+-- ============================================
+-- 7. PARAMETROS_RESULTADO
+-- ============================================
+CREATE TABLE parametros_resultado (
+    id BIGSERIAL PRIMARY KEY,
+    examen_id BIGINT NOT NULL,
+    nombre_parametro VARCHAR(60) NOT NULL,
+    etiqueta VARCHAR(100) NOT NULL,
+    tipo_dato VARCHAR(20) NOT NULL
+        CHECK (tipo_dato IN ('texto', 'numero', 'decimal', 'booleano', 'fecha', 'opcion')),
+    unidad_medida VARCHAR(30),
+    valor_referencia VARCHAR(100),
+    obligatorio BOOLEAN NOT NULL DEFAULT FALSE,
+    orden_visual INT NOT NULL DEFAULT 1,
+    estado VARCHAR(20) NOT NULL DEFAULT 'activo'
+        CHECK (estado IN ('activo', 'inactivo')),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_parametros_resultado_examen
+        FOREIGN KEY (examen_id) REFERENCES examenes(id)
+        ON DELETE CASCADE,
+    CONSTRAINT ux_parametro_examen_nombre
+        UNIQUE (examen_id, nombre_parametro)
+);
+
+CREATE INDEX ix_parametros_resultado_examen
+ON parametros_resultado(examen_id, orden_visual);
+
+-- ============================================
+-- 8. RESULTADOS
+-- ============================================
+CREATE TABLE resultados (
+    id BIGSERIAL PRIMARY KEY,
+    detalle_orden_id BIGINT NOT NULL UNIQUE,
+    fecha_resultado TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resultado_json JSONB NOT NULL,
+    observaciones_generales VARCHAR(200),
+    archivo_pdf VARCHAR(255),
+    estado VARCHAR(20) NOT NULL DEFAULT 'borrador'
+        CHECK (estado IN ('borrador', 'finalizado', 'enviado')),
+    correo_enviado BOOLEAN NOT NULL DEFAULT FALSE,
+    fecha_envio_correo TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_resultados_detalle_orden
+        FOREIGN KEY (detalle_orden_id) REFERENCES detalle_ordenes(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX ix_resultados_estado
+ON resultados(estado);
+
+CREATE INDEX ix_resultados_json
+ON resultados USING GIN (resultado_json);
+
+-- ============================================
+-- 9. ENVIOS_CORREO
+-- ============================================
+CREATE TABLE envios_correo (
+    id BIGSERIAL PRIMARY KEY,
+    resultado_id BIGINT NOT NULL,
+    correo_destino VARCHAR(100) NOT NULL,
+    estado_envio VARCHAR(20) NOT NULL DEFAULT 'pendiente'
+        CHECK (estado_envio IN ('pendiente', 'enviado', 'fallido')),
+    fecha_envio TIMESTAMP,
+    archivo_adjunto VARCHAR(255),
+    error_detalle VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_envios_correo_resultado
+        FOREIGN KEY (resultado_id) REFERENCES resultados(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX ix_envios_correo_resultado
+ON envios_correo(resultado_id);
+
+CREATE INDEX ix_envios_correo_estado
+ON envios_correo(estado_envio);
