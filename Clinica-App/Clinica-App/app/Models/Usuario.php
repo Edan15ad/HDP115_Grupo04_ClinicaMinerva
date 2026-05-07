@@ -32,6 +32,26 @@ class Usuario extends Authenticatable
         'updated_at' => 'datetime',
     ];
 
+    public function getEmailAttribute()
+    {
+        return $this->correo;
+    }
+
+    public function getNameAttribute()
+    {
+        return trim($this->nombre . ' ' . $this->apellido);
+    }
+
+    public function getEmailForPasswordReset()
+    {
+        return $this->correo;
+    }
+
+    public function routeNotificationForMail($notification = null)
+    {
+        return $this->correo;
+    }
+
     public function paciente()
     {
         return $this->hasOne(Paciente::class, 'usuario_id');

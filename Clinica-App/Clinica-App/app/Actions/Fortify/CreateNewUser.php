@@ -2,32 +2,50 @@
 
 namespace App\Actions\Fortify;
 
-use App\Concerns\PasswordValidationRules;
-use App\Concerns\ProfileValidationRules;
-use App\Models\User;
+use App\Models\Paciente;
+use App\Models\Usuario;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
 {
-    use PasswordValidationRules, ProfileValidationRules;
+    use PasswordValidationRules;
 
-    /**
-     * Validate and create a newly registered user.
-     *
-     * @param  array<string, string>  $input
-     */
-    public function create(array $input): User
+    public function create(array $input): Usuario
     {
         Validator::make($input, [
-            ...$this->profileRules(),
+            'nombre' => ['required', 'string', 'max:50'],
+            'apellido' => ['required', 'string', 'max:50'],
+            'correo' => [
+                'required',
+                'string',
+                'email',
+                'max:100',
+                Rule::unique('usuarios', 'correo'),
+            ],
             'password' => $this->passwordRules(),
         ])->validate();
 
-        return User::create([
-            'name' => $input['name'],
-            'email' => $input['email'],
-            'password' => $input['password'],
-        ]);
+        return DB::transaction(function () use ($input) {
+            $usuario = Usuario::create([
+                'nombre' => $input['nombre'],
+                'apellido' => $input['apellido'],
+                'correo' => $input['correo'],
+                'password' => Hash::make($input['password']),
+                'rol' => 'paciente',
+                'estado' => 'activo',
+            ]);
+
+            Paciente::create([
+                'usuario_id' => $usuario->id,
+                'nombres' => $input['nombre'],
+                'apellidos' => $input['apellido'],
+            ]);
+
+            return $usuario;
+        });
     }
 }
