@@ -1,14 +1,24 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
+use App\Http\Controllers\Api\ControladorUsuarioRegistrado;
 
-Route::inertia('/', 'Welcome', [
-    'canRegister' => Features::enabled(Features::registration()),
-])->name('home');
+// Pantalla de Bienvenida
+Route::get('/', function () {
+    return inertia('Welcome');
+})->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+// Rutas de Registro Personalizadas (Solo Invitados)
+Route::middleware('guest')->group(function () {
+    Route::get('/register', [ControladorUsuarioRegistrado::class, 'create'])->name('register');
+    Route::post('/register', [ControladorUsuarioRegistrado::class, 'store']);
+});
+
+// Rutas Protegidas
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', function () {
+        return inertia('Dashboard');
+    })->name('dashboard');
 });
 
 require __DIR__.'/settings.php';
