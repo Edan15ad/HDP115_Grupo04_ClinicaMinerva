@@ -28,7 +28,6 @@ class ControladorUsuarioRegistrado extends Controller
             'password' => 'required|string|min:6|confirmed', 
             'dui' => 'nullable|string|size:9|unique:pacientes,dui', 
             'telefono' => 'nullable|string|max:8',
-  
             'fecha_nacimiento' => 'nullable|date',
             'genero' => 'nullable|string|max:20',
             'direccion' => 'nullable|string|max:150',
@@ -57,7 +56,6 @@ class ControladorUsuarioRegistrado extends Controller
                     'apellidos' => $request->apellidos,
                     'dui' => $request->dui,
                     'telefono' => $request->telefono,
-                    // Guardamos los nuevos datos en la BD
                     'fecha_nacimiento' => $request->fecha_nacimiento,
                     'genero' => $request->genero,
                     'direccion' => $request->direccion,
