@@ -8,7 +8,7 @@ Route::get('/', function () {
     return inertia('Welcome');
 })->name('home');
 
-// Rutas de Registro Personalizadas (Solo Invitados)
+// Rutas de Registro (Solo Invitados)
 Route::middleware('guest')->group(function () {
     Route::get('/register', [ControladorUsuarioRegistrado::class, 'create'])->name('register');
     Route::post('/register', [ControladorUsuarioRegistrado::class, 'store']);

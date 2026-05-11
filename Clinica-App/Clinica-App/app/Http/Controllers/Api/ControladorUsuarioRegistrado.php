@@ -20,7 +20,7 @@ class ControladorUsuarioRegistrado extends Controller
 
     public function store(Request $request)
     {
-        // 1. Validaciones con los nuevos campos
+
         $request->validate([
             'nombres' => 'required|string|max:60',
             'apellidos' => 'required|string|max:60',
@@ -28,12 +28,11 @@ class ControladorUsuarioRegistrado extends Controller
             'password' => 'required|string|min:6|confirmed', 
             'dui' => 'nullable|string|size:9|unique:pacientes,dui', 
             'telefono' => 'nullable|string|max:8',
-            // Nuevos campos agregados
             'fecha_nacimiento' => 'nullable|date',
             'genero' => 'nullable|string|max:20',
             'direccion' => 'nullable|string|max:150',
         ], [
-            // 2. MENSAJES PERSONALIZADOS (Aquí resolvemos tu problema del DUI)
+            
             'dui.unique' => 'Este número de DUI ya está registrado en el sistema. Por favor, verifícalo e insértalo correctamente.',
             'dui.size' => 'El número de DUI debe tener exactamente 9 dígitos sin guiones.',
             'correo.unique' => 'Este correo electrónico ya está en uso. Por favor, intenta iniciar sesión.',
@@ -57,7 +56,6 @@ class ControladorUsuarioRegistrado extends Controller
                     'apellidos' => $request->apellidos,
                     'dui' => $request->dui,
                     'telefono' => $request->telefono,
-                    // Guardamos los nuevos datos en la BD
                     'fecha_nacimiento' => $request->fecha_nacimiento,
                     'genero' => $request->genero,
                     'direccion' => $request->direccion,
