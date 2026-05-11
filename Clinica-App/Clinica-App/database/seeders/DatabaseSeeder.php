@@ -6,11 +6,15 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Seed the application's database.
+     */
     public function run(): void
     {
-        // LLAMAMOS SOLO A TU SEEDER PERSONALIZADO
+        // Llamamos a tus seeders en el orden correcto
         $this->call([
             UsuarioSeeder::class,
+            PacienteSeeder::class, // Agregamos este para que el paciente tenga perfil
         ]);
     }
 }
