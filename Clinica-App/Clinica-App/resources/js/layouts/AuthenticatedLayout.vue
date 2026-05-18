@@ -1,13 +1,89 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 
-defineProps({
+const props = defineProps({
     activeModule: {
         type: String,
         default: 'inicio',
     },
 });
+
+const perfilVisible = ref(false);
+const perfilLoading = ref(false);
+const perfilSaving = ref(false);
+const perfilError = ref('');
+const perfilMensaje = ref('');
+
+const perfil = ref({
+    usuario_nombre: '',
+    usuario_apellido: '',
+    correo: '',
+    paciente_nombres: '',
+    paciente_apellidos: '',
+    dui: '',
+    fecha_nacimiento: '',
+    telefono: '',
+    direccion: '',
+});
+
+const abrirPerfil = async () => {
+    perfilVisible.value = true;
+    perfilLoading.value = true;
+    perfilError.value = '';
+    perfilMensaje.value = '';
+
+    try {
+        const response = await axios.get('/api/paciente/perfil');
+        const data = response.data?.data;
+
+        perfil.value = {
+            usuario_nombre: data?.usuario?.nombre ?? '',
+            usuario_apellido: data?.usuario?.apellido ?? '',
+            correo: data?.usuario?.correo ?? '',
+            paciente_nombres: data?.paciente?.nombres ?? '',
+            paciente_apellidos: data?.paciente?.apellidos ?? '',
+            dui: data?.paciente?.dui ?? '',
+            fecha_nacimiento: data?.paciente?.fecha_nacimiento ?? '',
+            telefono: data?.paciente?.telefono ?? '',
+            direccion: data?.paciente?.direccion ?? '',
+        };
+    } catch (error) {
+        console.error(error);
+        perfilError.value = error.response?.data?.mensaje || 'No se pudo cargar el perfil.';
+    } finally {
+        perfilLoading.value = false;
+    }
+};
+
+const guardarPerfil = async () => {
+    perfilSaving.value = true;
+    perfilError.value = '';
+    perfilMensaje.value = '';
+
+    try {
+        const response = await axios.put('/api/paciente/perfil', {
+            correo: perfil.value.correo,
+            dui: perfil.value.dui,
+            telefono: perfil.value.telefono,
+            direccion: perfil.value.direccion,
+        });
+
+        perfilMensaje.value = response.data?.mensaje || 'Perfil actualizado correctamente.';
+    } catch (error) {
+        console.error(error);
+
+        if (error.response?.data?.errors) {
+            const firstError = Object.values(error.response.data.errors)[0]?.[0];
+            perfilError.value = firstError || 'Revisa los datos ingresados.';
+        } else {
+            perfilError.value = error.response?.data?.mensaje || 'No se pudo actualizar el perfil.';
+        }
+    } finally {
+        perfilSaving.value = false;
+    }
+};
 
 const emit = defineEmits(['update:activeModule']);
 
@@ -35,6 +111,7 @@ const modules = computed(() => {
             label: 'Inicio',
             icon: 'pi pi-home',
             roles: ['paciente', 'recepcionista', 'laboratorio', 'administrador'],
+            route: '/dashboard',
         },
         {
             key: 'pacientes',
@@ -47,6 +124,13 @@ const modules = computed(() => {
             label: 'Citas',
             icon: 'pi pi-calendar',
             roles: ['paciente', 'recepcionista', 'administrador'],
+        },
+        {
+            key: 'mis-examenes',
+            label: 'Mis exámenes',
+            icon: 'pi pi-list-check',
+            roles: ['paciente'],
+            route: '/paciente/mis-examenes',
         },
         {
             key: 'examenes',
@@ -83,9 +167,20 @@ const modules = computed(() => {
     return all.filter((item) => item.roles.includes(userRole.value));
 });
 
-const setModule = (key) => {
-    emit('update:activeModule', key);
+const setModule = (item) => {
     sidebarOpen.value = false;
+
+    if (item.route) {
+        router.visit(item.route);
+        return;
+    }
+
+    if (page.component === 'Dashboard') {
+        emit('update:activeModule', item.key);
+        return;
+    }
+
+    router.visit(`/dashboard?modulo=${item.key}`);
 };
 
 const logout = () => {
@@ -132,6 +227,16 @@ const logout = () => {
                     </div>
 
                     <button
+                        v-if="userRole === 'paciente'"
+                        type="button"
+                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
+                        title="Ver perfil"
+                        @click="abrirPerfil"
+                    >
+                        <i class="pi pi-user"></i>
+                    </button>
+
+                    <button
                         type="button"
                         class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600"
                         title="Cerrar sesión"
@@ -168,11 +273,11 @@ const logout = () => {
                         type="button"
                         class="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition"
                         :class="
-                            activeModule === item.key
+                            props.activeModule === item.key
                                 ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                         "
-                        @click="setModule(item.key)"
+                        @click="setModule(item)"
                     >
                         <i :class="item.icon"></i>
                         <span>{{ item.label }}</span>
@@ -195,10 +300,160 @@ const logout = () => {
             </div>
         </aside>
 
-        <main class="min-h-screen pt-16 lg:pl-72">
-            <section class="p-4 md:p-6 lg:p-8">
+        <main class="min-h-screen bg-slate-100 pt-16 lg:pl-72">
+            <section class="w-full p-4 md:p-5 lg:p-6">
                 <slot />
             </section>
         </main>
+
+
+        <Dialog
+    v-model:visible="perfilVisible"
+    modal
+    header="Mi perfil"
+    :style="{ width: 'min(760px, 95vw)' }"
+    class="rounded-3xl"
+>
+    <div v-if="perfilLoading" class="flex min-h-60 items-center justify-center">
+        <div class="text-center">
+            <i class="pi pi-spin pi-spinner text-4xl text-cyan-500"></i>
+            <p class="mt-4 font-bold text-slate-600">Cargando perfil...</p>
+        </div>
+    </div>
+
+    <div v-else class="space-y-5">
+        <div class="rounded-3xl bg-slate-50 p-4">
+            <p class="text-sm font-bold text-slate-700">
+                Aquí puedes consultar tu información personal y actualizar tus datos de contacto.
+            </p>
+            <p class="mt-1 text-xs text-slate-500">
+                Solo puedes editar correo, DUI, teléfono y dirección.
+            </p>
+        </div>
+
+        <div
+            v-if="perfilMensaje"
+            class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700"
+        >
+            <i class="pi pi-check-circle mr-2"></i>
+            {{ perfilMensaje }}
+        </div>
+
+        <div
+            v-if="perfilError"
+            class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700"
+        >
+            <i class="pi pi-exclamation-triangle mr-2"></i>
+            {{ perfilError }}
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Nombre de usuario
+                </label>
+                <input
+                    :value="`${perfil.usuario_nombre} ${perfil.usuario_apellido}`"
+                    disabled
+                    class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500"
+                />
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Correo
+                </label>
+                <input
+                    v-model="perfil.correo"
+                    type="email"
+                    class="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                />
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Nombre del paciente
+                </label>
+                <input
+                    :value="`${perfil.paciente_nombres} ${perfil.paciente_apellidos}`"
+                    disabled
+                    class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500"
+                />
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Fecha de nacimiento
+                </label>
+                <input
+                    :value="perfil.fecha_nacimiento || '—'"
+                    disabled
+                    class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500"
+                />
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    DUI
+                </label>
+                <input
+                    v-model="perfil.dui"
+                    maxlength="9"
+                    placeholder="000000000"
+                    class="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                />
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Teléfono
+                </label>
+                <input
+                    v-model="perfil.telefono"
+                    maxlength="8"
+                    placeholder="00000000"
+                    class="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                />
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Dirección
+                </label>
+                <textarea
+                    v-model="perfil.direccion"
+                    maxlength="150"
+                    rows="3"
+                    placeholder="Dirección del paciente"
+                    class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                ></textarea>
+
+                <p class="mt-1 text-right text-xs font-bold text-slate-400">
+                    {{ perfil.direccion?.length || 0 }}/150
+                </p>
+            </div>
+        </div>
+
+        <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+            <Button
+                label="Cerrar"
+                icon="pi pi-times"
+                severity="secondary"
+                class="rounded-2xl!"
+                :disabled="perfilSaving"
+                @click="perfilVisible = false"
+            />
+
+            <Button
+                label="Guardar cambios"
+                icon="pi pi-save"
+                class="rounded-2xl! bg-cyan-500! text-white! hover:bg-cyan-600!"
+                :loading="perfilSaving"
+                @click="guardarPerfil"
+            />
+        </div>
+    </div>
+</Dialog>
+
     </div>
 </template>
