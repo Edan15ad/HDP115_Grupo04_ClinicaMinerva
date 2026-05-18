@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cita;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class CitaController extends Controller
 {
@@ -124,4 +125,68 @@ class CitaController extends Controller
             'mensaje' => 'Cita eliminada correctamente'
         ]);
     }
+
+
+    //METODOS PERSONALIZADOS
+
+    public function marcarMuestraTomada(string $id)
+{
+    $cita = Cita::with(['orden.detalles'])->find($id);
+
+    $usuario = request()->user();
+
+    if (!$usuario || !in_array($usuario->rol, ['recepcionista', 'administrador'])) {
+        return response()->json([
+            'ok' => false,
+            'mensaje' => 'No tienes permisos para marcar muestras como tomadas.',
+        ], 403);
+    }
+
+    if (!$cita) {
+        return response()->json([
+            'ok' => false,
+            'mensaje' => 'Cita no encontrada'
+        ], 404);
+    }
+
+    if (!$cita->orden) {
+        return response()->json([
+            'ok' => false,
+            'mensaje' => 'La cita no tiene una orden asociada.'
+        ], 422);
+    }
+
+    if (in_array($cita->estado, ['finalizada', 'cancelada'])) {
+        return response()->json([
+            'ok' => false,
+            'mensaje' => 'No se puede modificar una cita finalizada o cancelada.'
+        ], 422);
+    }
+
+    DB::transaction(function () use ($cita) {
+        $cita->update([
+            'estado' => 'en_laboratorio',
+        ]);
+
+        $cita->orden->update([
+            'estado' => 'en_laboratorio',
+        ]);
+
+        foreach ($cita->orden->detalles as $detalle) {
+            $detalle->update([
+                'estado' => 'en_proceso',
+                'fecha_muestra' => now(),
+            ]);
+        }
+    });
+
+    return response()->json([
+        'ok' => true,
+        'mensaje' => 'Muestra tomada correctamente. La orden fue enviada a laboratorio.',
+        'data' => $cita->fresh()->load([
+            'paciente.usuario:id,nombre,apellido,correo,rol,estado',
+            'orden.detalles.examen',
+        ]),
+    ]);
+}
 }

@@ -31,7 +31,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'Clínica Minerva';
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
 
-    layout: (name) => {
+        layout: (name) => {
         switch (true) {
             case name === 'Welcome':
                 return null;
@@ -40,6 +40,9 @@ createInertiaApp({
                 return null;
 
             case name === 'Dashboard':
+                return null;
+
+            case name.startsWith('Paciente/'):
                 return null;
 
             case name.startsWith('settings/'):
