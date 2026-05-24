@@ -1,11 +1,14 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const form = useForm({
     correo: '',
     password: '',
     remember: false,
 });
+
+const showPassword = ref(false);
 
 const submit = () => {
     form.post('/login', {
@@ -15,121 +18,131 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Iniciar sesión" />
+    <Head title="Iniciar sesión · Clínica Minerva" />
 
-    <div class="flex min-h-screen bg-slate-950">
-        <div class="hidden flex-1 items-center justify-center bg-gradient-to-br from-cyan-500 via-teal-500 to-emerald-500 p-12 lg:flex">
-            <div class="max-w-lg text-white">
-                <div class="mb-8 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/20 backdrop-blur">
-                    <i class="pi pi-heart-fill text-3xl"></i>
-                </div>
+    <div style="min-height:100vh; background:#f1f5f9; font-family:'DM Sans','Segoe UI',sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px;">
 
-                <h1 class="text-5xl font-black leading-tight">
-                    Bienvenido a Clínica Minerva
-                </h1>
-
-                <p class="mt-6 text-lg leading-8 text-white/90">
-                    Accede al panel según tu rol: paciente, recepcionista, laboratorio
-                    o administrador.
-                </p>
-
-                <div class="mt-10 grid grid-cols-2 gap-4">
-                    <div class="rounded-2xl bg-white/15 p-4 backdrop-blur">
-                        <i class="pi pi-calendar mb-3 text-2xl"></i>
-                        <p class="font-bold">Citas</p>
-                        <p class="text-sm text-white/80">Agendamiento clínico</p>
-                    </div>
-                    <div class="rounded-2xl bg-white/15 p-4 backdrop-blur">
-                        <i class="pi pi-file-pdf mb-3 text-2xl"></i>
-                        <p class="font-bold">Resultados</p>
-                        <p class="text-sm text-white/80">Reportes PDF</p>
-                    </div>
-                </div>
+        <!-- Logo centrado -->
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:32px;">
+            <div style="width:44px; height:44px; border-radius:14px; background:linear-gradient(135deg,#0891b2,#0e7490); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(8,145,178,0.35);">
+                <i class="pi pi-heart-fill" style="color:white; font-size:18px;"></i>
+            </div>
+            <div>
+                <div style="font-size:16px; font-weight:800; color:#0f172a; line-height:1.2;">Clínica Minerva</div>
+                <div style="font-size:10px; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Sistema de exámenes clínicos</div>
             </div>
         </div>
 
-        <div class="flex flex-1 items-center justify-center px-6 py-12">
-            <div class="w-full max-w-md">
-                <div class="mb-8 text-center lg:text-left">
-                    <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 lg:mx-0">
-                        <i class="pi pi-sign-in text-2xl"></i>
-                    </div>
+        <!-- Card del formulario -->
+        <div style="width:100%; max-width:420px; background:white; border-radius:24px; padding:36px; box-shadow:0 4px 24px rgba(0,0,0,0.08); border:1px solid #f1f5f9;">
 
-                    <h2 class="text-3xl font-black text-white">Iniciar sesión</h2>
-                    <p class="mt-2 text-slate-400">
-                        Ingresa con tu correo y contraseña.
-                    </p>
+            <!-- Encabezado -->
+            <div style="margin-bottom:28px;">
+                <h2 style="font-size:24px; font-weight:900; color:#0f172a; margin:0 0 6px; letter-spacing:-0.02em;">Iniciar sesión</h2>
+                <p style="font-size:13px; color:#94a3b8; margin:0;">Ingresa con tu correo y contraseña.</p>
+            </div>
+
+            <!-- Error -->
+            <div v-if="form.errors.correo || form.errors.password"
+                style="margin-bottom:18px; padding:12px 14px; border-radius:12px; background:#fff5f5; border:1px solid #fecaca; color:#dc2626; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                <i class="pi pi-exclamation-circle"></i>
+                {{ form.errors.correo || form.errors.password }}
+            </div>
+
+            <form @submit.prevent="submit" style="display:flex; flex-direction:column; gap:16px;">
+
+                <!-- Correo -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:7px;">Correo electrónico</label>
+                    <input
+                        v-model="form.correo"
+                        type="email"
+                        placeholder="tucorreo@dominio.com"
+                        autocomplete="username"
+                        style="width:100%; height:46px; border-radius:12px; border:1.5px solid #e2e8f0; background:white; color:#0f172a; padding:0 16px; font-size:14px; font-weight:600; outline:none; box-sizing:border-box; transition:border 0.2s, box-shadow 0.2s;"
+                        onfocus="this.style.borderColor='#0891b2'; this.style.boxShadow='0 0 0 3px rgba(8,145,178,0.1)'"
+                        onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'"
+                    />
                 </div>
 
-                <form
-                    @submit.prevent="submit"
-                    class="space-y-5 rounded-3xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur"
-                >
-                    <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-200">
-                            Correo electrónico
-                        </label>
-                        <InputText
-                            v-model="form.correo"
-                            type="email"
-                            placeholder="tucorreo@dominio.com"
-                            class="w-full"
-                            :class="{ 'p-invalid': form.errors.correo }"
-                        />
-                        <small v-if="form.errors.correo" class="mt-1 block text-red-300">
-                            {{ form.errors.correo }}
-                        </small>
-                    </div>
-
-                    <div>
-                        <label class="mb-2 block text-sm font-semibold text-slate-200">
-                            Contraseña
-                        </label>
-                        <Password
+                <!-- Contraseña -->
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:7px;">Contraseña</label>
+                    <div style="position:relative;">
+                        <input
                             v-model="form.password"
-                            placeholder="********"
-                            class="w-full"
-                            inputClass="w-full"
-                            :feedback="false"
-                            toggleMask
-                            :class="{ 'p-invalid': form.errors.password }"
+                            :type="showPassword ? 'text' : 'password'"
+                            placeholder="••••••••"
+                            autocomplete="current-password"
+                            style="width:100%; height:46px; border-radius:12px; border:1.5px solid #e2e8f0; background:white; color:#0f172a; padding:0 50px 0 16px; font-size:14px; font-weight:600; outline:none; box-sizing:border-box; transition:border 0.2s, box-shadow 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'; this.style.boxShadow='0 0 0 3px rgba(8,145,178,0.1)'"
+                            onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'"
                         />
-                        <small v-if="form.errors.password" class="mt-1 block text-red-300">
-                            {{ form.errors.password }}
-                        </small>
-                    </div>
-
-                    <div class="flex items-center justify-between">
-                        <label class="flex items-center gap-2 text-sm text-slate-300">
-                            <Checkbox v-model="form.remember" binary />
-                            Recordarme
-                        </label>
-
-                        <Link
-                            href="/forgot-password"
-                            class="text-sm font-semibold text-cyan-300 hover:text-cyan-200"
+                        <button
+                            type="button"
+                            @click="showPassword = !showPassword"
+                            style="position:absolute; right:14px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0; transition:color 0.2s;"
+                            onmouseover="this.style.color='#64748b'"
+                            onmouseout="this.style.color='#94a3b8'"
                         >
-                            ¿Olvidaste tu contraseña?
-                        </Link>
+                            <i :class="`pi ${showPassword ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:17px;"></i>
+                        </button>
                     </div>
+                </div>
 
-                    <Button
-                        type="submit"
-                        label="Entrar al sistema"
-                        icon="pi pi-arrow-right"
-                        iconPos="right"
-                        class="w-full justify-center rounded-2xl! border-0! bg-cyan-400! py-3! font-bold! text-slate-950! hover:bg-cyan-300!"
-                        :loading="form.processing"
-                    />
+                <!-- Recordarme + olvidé contraseña -->
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input
+                            type="checkbox"
+                            v-model="form.remember"
+                            style="width:16px; height:16px; border-radius:5px; accent-color:#0891b2; cursor:pointer;"
+                        />
+                        <span style="font-size:13px; font-weight:600; color:#64748b;">Recordarme</span>
+                    </label>
+                    <Link href="/forgot-password"
+                        style="font-size:13px; font-weight:700; color:#0891b2; text-decoration:none; transition:color 0.2s;"
+                        onmouseover="this.style.color='#0e7490'"
+                        onmouseout="this.style.color='#0891b2'">
+                        ¿Olvidaste tu contraseña?
+                    </Link>
+                </div>
 
-                    <p class="text-center text-sm text-slate-400">
-                        ¿No tienes cuenta?
-                        <Link href="/register" class="font-bold text-cyan-300 hover:text-cyan-200">
-                            Regístrate
-                        </Link>
-                    </p>
-                </form>
-            </div>
+                <!-- Botón -->
+                <button
+                    type="submit"
+                    :disabled="form.processing"
+                    style="width:100%; height:48px; border-radius:13px; border:none; background:linear-gradient(135deg,#0891b2,#0e7490); color:white; font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 4px 14px rgba(8,145,178,0.35); transition:all 0.2s; margin-top:4px;"
+                    onmouseover="if(!this.disabled){ this.style.transform='translateY(-1px)'; this.style.boxShadow='0 8px 22px rgba(8,145,178,0.45)'; }"
+                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px rgba(8,145,178,0.35)';"
+                >
+                    <i v-if="!form.processing" class="pi pi-arrow-right" style="font-size:15px;"></i>
+                    <i v-else class="pi pi-spin pi-spinner" style="font-size:15px;"></i>
+                    {{ form.processing ? 'Verificando...' : 'Entrar al sistema' }}
+                </button>
+
+                <!-- Registro -->
+                <p style="text-align:center; font-size:13px; color:#94a3b8; margin:0;">
+                    ¿No tienes cuenta?
+                    <Link href="/register"
+                        style="font-weight:700; color:#0891b2; text-decoration:none; margin-left:4px; transition:color 0.2s;"
+                        onmouseover="this.style.color='#0e7490'"
+                        onmouseout="this.style.color='#0891b2'">
+                        Regístrate gratis
+                    </Link>
+                </p>
+            </form>
+        </div>
+
+        <!-- Volver al inicio -->
+        <div style="margin-top:20px;">
+            <Link href="/"
+                style="font-size:12px; font-weight:600; color:#94a3b8; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:color 0.2s;"
+                onmouseover="this.style.color='#64748b'"
+                onmouseout="this.style.color='#94a3b8'">
+                <i class="pi pi-arrow-left" style="font-size:11px;"></i>
+                Volver al inicio
+            </Link>
         </div>
     </div>
 </template>

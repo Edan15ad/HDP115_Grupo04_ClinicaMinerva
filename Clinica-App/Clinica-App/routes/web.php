@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\PacientePerfilController;
 use App\Http\Controllers\Api\CitaController;
 use App\Http\Controllers\Api\LaboratorioResultadoController;
 use App\Http\Controllers\Api\PacienteResultadoController;
+use App\Http\Controllers\Api\EnvioCorreoController;
+use App\Http\Controllers\Api\CambiarPasswordController; // <-- NUEVO
 
 // Pantalla de Bienvenida
 Route::get('/', function () {
@@ -43,16 +45,20 @@ Route::middleware(['auth'])->group(function () {
         ->name('api.paciente.solicitar-examen');
 
     Route::get('/api/paciente/perfil', [PacientePerfilController::class, 'show'])
-    ->name('api.paciente.perfil.show');
+        ->name('api.paciente.perfil.show');
 
     Route::put('/api/paciente/perfil', [PacientePerfilController::class, 'update'])
         ->name('api.paciente.perfil.update');
 
+    // NUEVO: Cambiar contraseña (disponible para todos los roles)
+    Route::put('/api/usuario/cambiar-password', [CambiarPasswordController::class, 'update'])
+        ->name('api.usuario.cambiar-password');
+
     Route::put('/api/recepcion/citas/{id}/muestra-tomada', [CitaController::class, 'marcarMuestraTomada'])
-    ->name('api.recepcion.citas.muestra-tomada');
-    
+        ->name('api.recepcion.citas.muestra-tomada');
+
     Route::get('/api/laboratorio/resultados-pendientes', [LaboratorioResultadoController::class, 'pendientes'])
-    ->name('api.laboratorio.resultados-pendientes');
+        ->name('api.laboratorio.resultados-pendientes');
 
     Route::get('/api/laboratorio/resultados-formulario/{detalleOrdenId}', [LaboratorioResultadoController::class, 'formulario'])
         ->name('api.laboratorio.resultados-formulario');
@@ -61,10 +67,13 @@ Route::middleware(['auth'])->group(function () {
         ->name('api.laboratorio.resultados.store');
 
     Route::get('/api/paciente/resultados', [PacienteResultadoController::class, 'index'])
-    ->name('api.paciente.resultados.index');
+        ->name('api.paciente.resultados.index');
 
     Route::get('/api/paciente/resultados/{id}', [PacienteResultadoController::class, 'show'])
-        ->name('api.paciente.resultados.show');    
+        ->name('api.paciente.resultados.show');
+
+    Route::post('/api/correos/reenviar/{resultadoId}', [EnvioCorreoController::class, 'reenviar'])
+        ->name('api.correos.reenviar');
 });
 
 require __DIR__.'/settings.php';
