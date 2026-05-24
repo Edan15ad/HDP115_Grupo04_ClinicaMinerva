@@ -4,456 +4,590 @@ import { router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 
 const props = defineProps({
-    activeModule: {
-        type: String,
-        default: 'inicio',
-    },
+    activeModule: { type: String, default: 'inicio' },
 });
-
-const perfilVisible = ref(false);
-const perfilLoading = ref(false);
-const perfilSaving = ref(false);
-const perfilError = ref('');
-const perfilMensaje = ref('');
-
-const perfil = ref({
-    usuario_nombre: '',
-    usuario_apellido: '',
-    correo: '',
-    paciente_nombres: '',
-    paciente_apellidos: '',
-    dui: '',
-    fecha_nacimiento: '',
-    telefono: '',
-    direccion: '',
-});
-
-const abrirPerfil = async () => {
-    perfilVisible.value = true;
-    perfilLoading.value = true;
-    perfilError.value = '';
-    perfilMensaje.value = '';
-
-    try {
-        const response = await axios.get('/api/paciente/perfil');
-        const data = response.data?.data;
-
-        perfil.value = {
-            usuario_nombre: data?.usuario?.nombre ?? '',
-            usuario_apellido: data?.usuario?.apellido ?? '',
-            correo: data?.usuario?.correo ?? '',
-            paciente_nombres: data?.paciente?.nombres ?? '',
-            paciente_apellidos: data?.paciente?.apellidos ?? '',
-            dui: data?.paciente?.dui ?? '',
-            fecha_nacimiento: data?.paciente?.fecha_nacimiento ?? '',
-            telefono: data?.paciente?.telefono ?? '',
-            direccion: data?.paciente?.direccion ?? '',
-        };
-    } catch (error) {
-        console.error(error);
-        perfilError.value = error.response?.data?.mensaje || 'No se pudo cargar el perfil.';
-    } finally {
-        perfilLoading.value = false;
-    }
-};
-
-const guardarPerfil = async () => {
-    perfilSaving.value = true;
-    perfilError.value = '';
-    perfilMensaje.value = '';
-
-    try {
-        const response = await axios.put('/api/paciente/perfil', {
-            correo: perfil.value.correo,
-            dui: perfil.value.dui,
-            telefono: perfil.value.telefono,
-            direccion: perfil.value.direccion,
-        });
-
-        perfilMensaje.value = response.data?.mensaje || 'Perfil actualizado correctamente.';
-    } catch (error) {
-        console.error(error);
-
-        if (error.response?.data?.errors) {
-            const firstError = Object.values(error.response.data.errors)[0]?.[0];
-            perfilError.value = firstError || 'Revisa los datos ingresados.';
-        } else {
-            perfilError.value = error.response?.data?.mensaje || 'No se pudo actualizar el perfil.';
-        }
-    } finally {
-        perfilSaving.value = false;
-    }
-};
-
 const emit = defineEmits(['update:activeModule']);
 
 const page = usePage();
 const sidebarOpen = ref(false);
 
 const user = computed(() => page.props.auth?.user ?? {});
+const userName  = computed(() => user.value.nombre || user.value.name || 'Usuario');
+const userEmail = computed(() => user.value.correo || user.value.email || '');
+const userRole  = computed(() => String(user.value.rol ?? '').toLowerCase() || 'usuario');
 
-const userName = computed(() => {
-    return user.value.nombre || user.value.name || 'Usuario';
-});
+const userRoleLabel = computed(() => ({
+    paciente:      'Paciente',
+    recepcionista: 'Recepcionista',
+    laboratorio:   'Laboratorio',
+    administrador: 'Administrador',
+}[userRole.value] ?? userRole.value));
 
-const userEmail = computed(() => {
-    return user.value.correo || user.value.email || 'usuario@minerva.com';
-});
+const roleColor = computed(() => ({
+    paciente:      { bg: '#0891b2', light: '#ecfeff', text: '#0e7490' },
+    recepcionista: { bg: '#059669', light: '#ecfdf5', text: '#047857' },
+    laboratorio:   { bg: '#2563eb', light: '#eff6ff', text: '#1d4ed8' },
+    administrador: { bg: '#7c3aed', light: '#f5f3ff', text: '#6d28d9' },
+}[userRole.value] ?? { bg: '#64748b', light: '#f8fafc', text: '#475569' }));
 
-const userRole = computed(() => {
-    return user.value.rol || 'administrador';
-});
-
+// ─── Módulos por rol ─────────────────────────────────────────────────────────
 const modules = computed(() => {
     const all = [
-        {
-            key: 'inicio',
-            label: 'Inicio',
-            icon: 'pi pi-home',
-            roles: ['paciente', 'recepcionista', 'laboratorio', 'administrador'],
-            route: '/dashboard',
-        },
-        {
-            key: 'pacientes',
-            label: 'Pacientes',
-            icon: 'pi pi-users',
-            roles: ['recepcionista', 'administrador'],
-        },
-        {
-            key: 'citas',
-            label: 'Citas',
-            icon: 'pi pi-calendar',
-            roles: ['paciente', 'recepcionista', 'administrador'],
-        },
-        {
-            key: 'mis-examenes',
-            label: 'Mis exámenes',
-            icon: 'pi pi-list-check',
-            roles: ['paciente'],
-            route: '/paciente/mis-examenes',
-        },
-        {
-            key: 'examenes',
-            label: 'Exámenes',
-            icon: 'pi pi-list-check',
-            roles: ['recepcionista', 'laboratorio', 'administrador'],
-        },
-        {
-            key: 'ordenes',
-            label: 'Órdenes',
-            icon: 'pi pi-clipboard',
-            roles: ['recepcionista', 'laboratorio', 'administrador'],
-        },
-        {
-            key: 'resultados',
-            label: 'Resultados',
-            icon: 'pi pi-file-check',
-            roles: ['paciente', 'laboratorio', 'administrador'],
-        },
-        {
-            key: 'correos',
-            label: 'Envíos correo',
-            icon: 'pi pi-envelope',
-            roles: ['recepcionista', 'laboratorio', 'administrador'],
-        },
-        {
-            key: 'usuarios',
-            label: 'Usuarios',
-            icon: 'pi pi-user-edit',
-            roles: ['administrador'],
-        },
+        { key: 'inicio',       label: 'Inicio',         icon: 'pi-home',        roles: ['paciente','recepcionista','laboratorio','administrador'], route: '/dashboard' },
+        { key: 'mis-examenes', label: 'Mis exámenes',   icon: 'pi-list-check',  roles: ['paciente'], route: '/paciente/mis-examenes' },
+        { key: 'resultados',   label: 'Mis resultados', icon: 'pi-file-check',  roles: ['paciente'] },
+        { key: 'pacientes',    label: 'Pacientes',      icon: 'pi-users',       roles: ['recepcionista','administrador'] },
+        { key: 'citas',        label: 'Citas',          icon: 'pi-calendar',    roles: ['recepcionista','administrador'] },
+        { key: 'ordenes',      label: 'Órdenes',        icon: 'pi-clipboard',   roles: ['recepcionista','laboratorio','administrador'] },
+        { key: 'resultados',   label: 'Resultados',     icon: 'pi-file-check',  roles: ['recepcionista','laboratorio','administrador'] },
+        { key: 'correos',      label: 'Envíos correo',  icon: 'pi-envelope',    roles: ['recepcionista','administrador'] },
+        { key: 'examenes',     label: 'Exámenes',       icon: 'pi-list-check',  roles: ['laboratorio','administrador'] },
+        { key: 'usuarios',     label: 'Usuarios',       icon: 'pi-user-edit',   roles: ['administrador'] },
     ];
-
-    return all.filter((item) => item.roles.includes(userRole.value));
+    const filtered = all.filter((m) => m.roles.includes(userRole.value));
+    const seen = new Set();
+    return filtered.filter((m) => { if (seen.has(m.key)) return false; seen.add(m.key); return true; });
 });
 
 const setModule = (item) => {
     sidebarOpen.value = false;
-
-    if (item.route) {
-        router.visit(item.route);
-        return;
-    }
-
-    if (page.component === 'Dashboard') {
-        emit('update:activeModule', item.key);
-        return;
-    }
-
+    if (item.route) { router.visit(item.route); return; }
+    if (page.component === 'Dashboard') { emit('update:activeModule', item.key); return; }
     router.visit(`/dashboard?modulo=${item.key}`);
 };
 
-const logout = () => {
-    router.post('/logout');
+const logout = () => router.post('/logout');
+
+// ─── Modal: editar perfil (paciente) ────────────────────────────────────────
+const perfilVisible  = ref(false);
+const perfilLoading  = ref(false);
+const perfilSaving   = ref(false);
+const perfilError    = ref('');
+const perfilMensaje  = ref('');
+const perfil = ref({ usuario_nombre:'', usuario_apellido:'', correo:'', paciente_nombres:'', paciente_apellidos:'', dui:'', fecha_nacimiento:'', telefono:'', direccion:'' });
+
+const abrirPerfil = async () => {
+    perfilVisible.value = true; perfilLoading.value = true;
+    perfilError.value = ''; perfilMensaje.value = '';
+    try {
+        const { data } = await axios.get('/api/paciente/perfil');
+        const d = data?.data;
+        perfil.value = {
+            usuario_nombre: d?.usuario?.nombre ?? '', usuario_apellido: d?.usuario?.apellido ?? '',
+            correo: d?.usuario?.correo ?? '',
+            paciente_nombres: d?.paciente?.nombres ?? '', paciente_apellidos: d?.paciente?.apellidos ?? '',
+            dui: d?.paciente?.dui ?? '', fecha_nacimiento: d?.paciente?.fecha_nacimiento ?? '',
+            telefono: d?.paciente?.telefono ?? '', direccion: d?.paciente?.direccion ?? '',
+        };
+    } catch (e) { perfilError.value = e.response?.data?.mensaje || 'No se pudo cargar el perfil.'; }
+    finally { perfilLoading.value = false; }
 };
+
+const guardarPerfil = async () => {
+    perfilSaving.value = true; perfilError.value = ''; perfilMensaje.value = '';
+    try {
+        const { data } = await axios.put('/api/paciente/perfil', {
+            correo: perfil.value.correo, dui: perfil.value.dui,
+            telefono: perfil.value.telefono, direccion: perfil.value.direccion,
+        });
+        perfilMensaje.value = data?.mensaje || 'Perfil actualizado.';
+    } catch (e) {
+        const firstErr = e.response?.data?.errors ? Object.values(e.response.data.errors)[0]?.[0] : null;
+        perfilError.value = firstErr || e.response?.data?.mensaje || 'Error al actualizar.';
+    } finally { perfilSaving.value = false; }
+};
+
+// ─── Modal: cambiar contraseña ────────────────────────────────────────────────
+const passVisible  = ref(false);
+const passSaving   = ref(false);
+const passError    = ref('');
+const passMensaje  = ref('');
+const passForm = ref({ password_actual:'', password_nuevo:'', password_nuevo_confirmation:'' });
+const showPass = ref({ actual: false, nuevo: false, confirm: false });
+
+const abrirCambiarPassword = () => {
+    passVisible.value = true; passSaving.value = false;
+    passError.value = ''; passMensaje.value = '';
+    passForm.value = { password_actual:'', password_nuevo:'', password_nuevo_confirmation:'' };
+    showPass.value = { actual: false, nuevo: false, confirm: false };
+};
+
+const passwordStrength = computed(() => {
+    const p = passForm.value.password_nuevo;
+    if (!p) return 0;
+    let score = 0;
+    if (p.length >= 8)  score++;
+    if (/[a-z]/.test(p)) score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[0-9]/.test(p)) score++;
+    if (/[^a-zA-Z0-9]/.test(p)) score++;
+    return score;
+});
+
+const passwordStrengthLabel = computed(() => ['','Muy débil','Débil','Regular','Fuerte','Muy fuerte'][passwordStrength.value] ?? '');
+const passwordStrengthColor = computed(() => ['','#ef4444','#f97316','#eab308','#22c55e','#10b981'][passwordStrength.value] ?? '#e2e8f0');
+
+const guardarPassword = async () => {
+    passSaving.value = true; passError.value = ''; passMensaje.value = '';
+    try {
+        const { data } = await axios.put('/api/usuario/cambiar-password', passForm.value);
+        passMensaje.value = data?.mensaje || 'Contraseña actualizada correctamente.';
+        passForm.value = { password_actual:'', password_nuevo:'', password_nuevo_confirmation:'' };
+        setTimeout(() => { passVisible.value = false; passMensaje.value = ''; }, 2000);
+    } catch (e) {
+        const firstErr = e.response?.data?.errors ? Object.values(e.response.data.errors)[0]?.[0] : null;
+        passError.value = firstErr || e.response?.data?.mensaje || 'No se pudo cambiar la contraseña.';
+    } finally { passSaving.value = false; }
+};
+
+// ─── Menú de usuario (dropdown) ──────────────────────────────────────────────
+const userMenuOpen = ref(false);
+const toggleUserMenu = () => { userMenuOpen.value = !userMenuOpen.value; };
+const closeUserMenu  = () => { userMenuOpen.value = false; };
+
+const initials = computed(() => {
+    const n = userName.value.trim().split(' ');
+    return (n[0]?.[0] ?? '') + (n[1]?.[0] ?? '');
+});
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-100">
-        <header class="fixed left-0 top-0 z-50 h-16 w-full border-b border-slate-200 bg-white/90 backdrop-blur">
-            <div class="flex h-full items-center justify-between px-4 lg:px-6">
-                <div class="flex items-center gap-3">
+    <div class="min-h-screen" style="background: #f1f5f9; font-family: 'DM Sans', 'Segoe UI', sans-serif;">
+
+        <!-- ══════════════════ HEADER ══════════════════ -->
+        <header style="
+            position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+            height: 64px;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(0,0,0,0.07);
+            box-shadow: 0 1px 20px rgba(0,0,0,0.06);
+        ">
+            <div style="display:flex; align-items:center; justify-content:space-between; height:100%; padding: 0 20px;">
+
+                <!-- Logo + Hamburguesa -->
+                <div style="display:flex; align-items:center; gap:12px;">
                     <button
-                        type="button"
-                        class="flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 lg:hidden"
+                        class="lg:hidden"
                         @click="sidebarOpen = true"
+                        style="width:38px; height:38px; border-radius:10px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#475569;"
                     >
-                        <i class="pi pi-bars text-xl"></i>
+                        <i class="pi pi-bars" style="font-size:18px;"></i>
                     </button>
 
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500 text-white shadow-lg shadow-cyan-500/30">
-                            <i class="pi pi-heart-fill"></i>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="
+                            width:40px; height:40px; border-radius:12px;
+                            background: linear-gradient(135deg, #0891b2, #0e7490);
+                            display:flex; align-items:center; justify-content:center;
+                            box-shadow: 0 4px 12px rgba(8,145,178,0.35);
+                        ">
+                            <i class="pi pi-heart-fill" style="color:white; font-size:16px;"></i>
                         </div>
                         <div>
-                            <h1 class="text-base font-black leading-tight text-slate-900">
-                                Clínica Minerva
-                            </h1>
-                            <p class="text-xs font-medium text-slate-500">
-                                Gestión de exámenes clínicos
-                            </p>
+                            <div style="font-size:15px; font-weight:800; color:#0f172a; line-height:1.2;">Clínica Minerva</div>
+                            <div style="font-size:11px; color:#94a3b8; font-weight:500;">SGE · Sistema de exámenes</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3">
-                    <div class="hidden text-right sm:block">
-                        <p class="text-sm font-bold text-slate-900">{{ userName }}</p>
-                        <p class="text-xs text-slate-500">{{ userEmail }}</p>
+                <!-- Derecha: badge rol + menú usuario -->
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <!-- Badge rol -->
+                    <div class="sm-show" :style="`
+                        padding: 4px 12px; border-radius:20px; font-size:11px; font-weight:700;
+                        background: ${roleColor.light}; color: ${roleColor.text};
+                        border: 1px solid ${roleColor.bg}22;
+                        letter-spacing: 0.04em; text-transform:uppercase;
+                    `">
+                        {{ userRoleLabel }}
                     </div>
 
-                    <div class="hidden rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold capitalize text-cyan-700 sm:block">
-                        {{ userRole }}
+                    <!-- Avatar / menú usuario -->
+                    <div style="position:relative;" v-click-outside="closeUserMenu">
+                        <button
+                            @click="toggleUserMenu"
+                            :style="`
+                                display:flex; align-items:center; gap:8px;
+                                padding: 6px 10px 6px 6px;
+                                border-radius: 24px; border: 1.5px solid #e2e8f0;
+                                background: white; cursor:pointer;
+                                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                                transition: all 0.2s;
+                            `"
+                        >
+                            <div :style="`
+                                width:32px; height:32px; border-radius:50%;
+                                background: linear-gradient(135deg, ${roleColor.bg}, ${roleColor.text});
+                                display:flex; align-items:center; justify-content:center;
+                                font-size:12px; font-weight:800; color:white; text-transform:uppercase;
+                            `">{{ initials }}</div>
+                            <div class="sm-show" style="text-align:left;">
+                                <div style="font-size:13px; font-weight:700; color:#0f172a; line-height:1.2;">{{ userName }}</div>
+                                <div style="font-size:11px; color:#94a3b8;">{{ userEmail }}</div>
+                            </div>
+                            <i class="pi pi-chevron-down sm-show" style="font-size:10px; color:#94a3b8;"></i>
+                        </button>
+
+                        <!-- Dropdown menú -->
+                        <div
+                            v-if="userMenuOpen"
+                            style="
+                                position:absolute; top:calc(100% + 8px); right:0;
+                                min-width:220px; background:white; border-radius:16px;
+                                box-shadow: 0 8px 32px rgba(0,0,0,0.14); border:1px solid #f1f5f9;
+                                overflow:hidden; z-index:100;
+                            "
+                        >
+                            <!-- Header dropdown -->
+                            <div :style="`padding:16px; background: linear-gradient(135deg, ${roleColor.bg}15, ${roleColor.light}); border-bottom:1px solid #f1f5f9;`">
+                                <div style="font-size:13px; font-weight:800; color:#0f172a;">{{ userName }}</div>
+                                <div style="font-size:11px; color:#64748b; margin-top:2px;">{{ userEmail }}</div>
+                                <div :style="`
+                                    display:inline-block; margin-top:6px;
+                                    padding:2px 8px; border-radius:8px; font-size:10px; font-weight:700;
+                                    background: ${roleColor.bg}; color:white; text-transform:uppercase;
+                                `">{{ userRoleLabel }}</div>
+                            </div>
+
+                            <!-- Opciones -->
+                            <div style="padding:8px;">
+                                <!-- Editar perfil: solo paciente -->
+                                <button
+                                    v-if="userRole === 'paciente'"
+                                    @click="closeUserMenu(); abrirPerfil();"
+                                    style="width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:none; background:transparent; cursor:pointer; font-size:13px; font-weight:600; color:#374151; text-align:left; transition:background 0.15s;"
+                                    onmouseover="this.style.background='#f8fafc'"
+                                    onmouseout="this.style.background='transparent'"
+                                >
+                                    <span style="width:30px; height:30px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
+                                        <i class="pi pi-user" style="font-size:13px; color:#64748b;"></i>
+                                    </span>
+                                    Editar perfil
+                                </button>
+
+                                <!-- Cambiar contraseña: todos los roles -->
+                                <button
+                                    @click="closeUserMenu(); abrirCambiarPassword();"
+                                    style="width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:none; background:transparent; cursor:pointer; font-size:13px; font-weight:600; color:#374151; text-align:left; transition:background 0.15s;"
+                                    onmouseover="this.style.background='#f8fafc'"
+                                    onmouseout="this.style.background='transparent'"
+                                >
+                                    <span style="width:30px; height:30px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center;">
+                                        <i class="pi pi-lock" style="font-size:13px; color:#64748b;"></i>
+                                    </span>
+                                    Cambiar contraseña
+                                </button>
+
+                                <div style="height:1px; background:#f1f5f9; margin:6px 0;"></div>
+
+                                <!-- Cerrar sesión -->
+                                <button
+                                    @click="closeUserMenu(); logout();"
+                                    style="width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:none; background:transparent; cursor:pointer; font-size:13px; font-weight:600; color:#ef4444; text-align:left; transition:background 0.15s;"
+                                    onmouseover="this.style.background='#fff5f5'"
+                                    onmouseout="this.style.background='transparent'"
+                                >
+                                    <span style="width:30px; height:30px; border-radius:8px; background:#fff5f5; display:flex; align-items:center; justify-content:center;">
+                                        <i class="pi pi-sign-out" style="font-size:13px; color:#ef4444;"></i>
+                                    </span>
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        </div>
                     </div>
-
-                    <button
-                        v-if="userRole === 'paciente'"
-                        type="button"
-                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
-                        title="Ver perfil"
-                        @click="abrirPerfil"
-                    >
-                        <i class="pi pi-user"></i>
-                    </button>
-
-                    <button
-                        type="button"
-                        class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600"
-                        title="Cerrar sesión"
-                        @click="logout"
-                    >
-                        <i class="pi pi-sign-out"></i>
-                    </button>
                 </div>
             </div>
         </header>
 
+        <!-- ══════════════════ OVERLAY MOBILE ══════════════════ -->
         <div
             v-if="sidebarOpen"
-            class="fixed inset-0 z-40 bg-slate-950/50 lg:hidden"
             @click="sidebarOpen = false"
+            style="position:fixed; inset:0; z-index:40; background:rgba(15,23,42,0.5); backdrop-filter:blur(2px);"
         ></div>
 
-        <aside
-            class="fixed left-0 top-16 z-50 h-[calc(100vh-4rem)] w-72 transform border-r border-slate-200 bg-white transition-transform duration-300 lg:translate-x-0"
-            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-        >
-            <div class="flex h-full flex-col">
-                <div class="border-b border-slate-100 p-5">
-                    <p class="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
-                        Menú
-                    </p>
-                    <h2 class="mt-1 text-lg font-black text-slate-900">Módulos</h2>
-                </div>
+        <!-- ══════════════════ SIDEBAR ══════════════════ -->
+        <aside :style="`
+            position: fixed; left:0; top:64px; z-index:50;
+            width: 260px; height: calc(100vh - 64px);
+            background: white;
+            border-right: 1px solid #f1f5f9;
+            display: flex; flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            transform: ${sidebarOpen ? 'translateX(0)' : 'translateX(-100%)'};
+            box-shadow: 4px 0 24px rgba(0,0,0,0.06);
+        `" class="lg-visible">
 
-                <nav class="flex-1 space-y-1 overflow-y-auto p-4">
-                    <button
-                        v-for="item in modules"
-                        :key="item.key"
-                        type="button"
-                        class="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition"
-                        :class="
-                            props.activeModule === item.key
-                                ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
-                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
-                        "
-                        @click="setModule(item)"
-                    >
-                        <i :class="item.icon"></i>
-                        <span>{{ item.label }}</span>
-                    </button>
-                </nav>
+            <!-- Cabecera sidebar -->
+            <div style="padding: 20px 16px 12px;">
+                <div style="font-size:10px; font-weight:800; letter-spacing:0.15em; text-transform:uppercase; color:#94a3b8;">Navegación</div>
+            </div>
 
-                <div class="border-t border-slate-100 p-4">
-                    <div class="rounded-3xl bg-slate-950 p-4 text-white">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950">
-                                <i class="pi pi-shield"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-bold">Sesión segura</p>
-                                <p class="text-xs text-slate-400">Control por roles</p>
-                            </div>
+            <!-- Navegación -->
+            <nav style="flex:1; overflow-y:auto; padding:0 10px 16px;">
+                <button
+                    v-for="item in modules"
+                    :key="item.key"
+                    @click="setModule(item)"
+                    :style="`
+                        width:100%; display:flex; align-items:center; gap:10px;
+                        padding: 11px 14px; border-radius:12px; border:none;
+                        cursor:pointer; font-size:13.5px; font-weight:600; text-align:left;
+                        margin-bottom: 3px;
+                        transition: all 0.2s;
+                        background: ${props.activeModule === item.key ? `linear-gradient(135deg, ${roleColor.bg}, ${roleColor.text})` : 'transparent'};
+                        color: ${props.activeModule === item.key ? 'white' : '#475569'};
+                        box-shadow: ${props.activeModule === item.key ? `0 4px 12px ${roleColor.bg}40` : 'none'};
+                    `"
+                >
+                    <span :style="`
+                        width:30px; height:30px; border-radius:8px; flex-shrink:0;
+                        display:flex; align-items:center; justify-content:center;
+                        background: ${props.activeModule === item.key ? 'rgba(255,255,255,0.2)' : '#f8fafc'};
+                    `">
+                        <i :class="`pi ${item.icon}`" style="font-size:14px;"></i>
+                    </span>
+                    {{ item.label }}
+                </button>
+            </nav>
+
+            <!-- Footer sidebar -->
+            <div style="padding:12px 10px;">
+                <div :style="`
+                    padding:14px 16px; border-radius:14px;
+                    background: linear-gradient(135deg, #0f172a, #1e293b);
+                    color:white;
+                `">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div :style="`
+                            width:34px; height:34px; border-radius:10px; flex-shrink:0;
+                            background: ${roleColor.bg}; display:flex; align-items:center; justify-content:center;
+                        `">
+                            <i class="pi pi-shield" style="font-size:14px; color:white;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:12px; font-weight:700;">Sesión segura</div>
+                            <div style="font-size:10px; color:#94a3b8; margin-top:1px;">Control por roles activo</div>
                         </div>
                     </div>
                 </div>
             </div>
         </aside>
 
-        <main class="min-h-screen bg-slate-100 pt-16 lg:pl-72">
-            <section class="w-full p-4 md:p-5 lg:p-6">
+        <!-- ══════════════════ CONTENIDO ══════════════════ -->
+        <main style="min-height:100vh; padding-top:64px;" class="main-content">
+            <div style="padding: 20px 20px 32px;">
                 <slot />
-            </section>
+            </div>
         </main>
 
-
+        <!-- ══════════════════ MODAL: EDITAR PERFIL (Paciente) ══════════════════ -->
         <Dialog
-    v-model:visible="perfilVisible"
-    modal
-    header="Mi perfil"
-    :style="{ width: 'min(760px, 95vw)' }"
-    class="rounded-3xl"
->
-    <div v-if="perfilLoading" class="flex min-h-60 items-center justify-center">
-        <div class="text-center">
-            <i class="pi pi-spin pi-spinner text-4xl text-cyan-500"></i>
-            <p class="mt-4 font-bold text-slate-600">Cargando perfil...</p>
-        </div>
-    </div>
-
-    <div v-else class="space-y-5">
-        <div class="rounded-3xl bg-slate-50 p-4">
-            <p class="text-sm font-bold text-slate-700">
-                Aquí puedes consultar tu información personal y actualizar tus datos de contacto.
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-                Solo puedes editar correo, DUI, teléfono y dirección.
-            </p>
-        </div>
-
-        <div
-            v-if="perfilMensaje"
-            class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700"
+            v-model:visible="perfilVisible"
+            modal
+            header="Editar mi perfil"
+            :style="{ width: 'min(720px, 95vw)', borderRadius: '20px' }"
         >
-            <i class="pi pi-check-circle mr-2"></i>
-            {{ perfilMensaje }}
-        </div>
+            <div v-if="perfilLoading" class="flex min-h-60 items-center justify-center">
+                <div class="text-center">
+                    <i class="pi pi-spin pi-spinner text-4xl text-cyan-500"></i>
+                    <p class="mt-4 font-bold text-slate-600">Cargando perfil...</p>
+                </div>
+            </div>
+            <div v-else style="padding:4px 0;">
+                <!-- Avisos -->
+                <div v-if="perfilMensaje" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                    <i class="pi pi-check-circle"></i> {{ perfilMensaje }}
+                </div>
+                <div v-if="perfilError" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#fff5f5; border:1px solid #fecaca; color:#991b1b; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                    <i class="pi pi-exclamation-triangle"></i> {{ perfilError }}
+                </div>
 
-        <div
-            v-if="perfilError"
-            class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700"
+                <!-- Sección info fija -->
+                <div style="margin-bottom:16px; padding:14px 16px; border-radius:14px; background:#f8fafc; border:1px solid #e2e8f0;">
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8; margin-bottom:10px;">Información personal</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">Nombre completo</label>
+                            <input :value="`${perfil.paciente_nombres} ${perfil.paciente_apellidos}`" disabled style="width:100%; height:40px; border-radius:10px; border:1px solid #e2e8f0; background:#f1f5f9; padding:0 12px; font-size:13px; font-weight:600; color:#94a3b8; box-sizing:border-box;" />
+                        </div>
+                        <div>
+                            <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:4px;">Fecha de nacimiento</label>
+                            <input :value="perfil.fecha_nacimiento || '—'" disabled style="width:100%; height:40px; border-radius:10px; border:1px solid #e2e8f0; background:#f1f5f9; padding:0 12px; font-size:13px; font-weight:600; color:#94a3b8; box-sizing:border-box;" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección editable -->
+                <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8; margin-bottom:10px;">Datos editables</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Correo electrónico</label>
+                        <input v-model="perfil.correo" type="email" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">DUI</label>
+                        <input v-model="perfil.dui" maxlength="9" placeholder="000000000" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Teléfono</label>
+                        <input v-model="perfil.telefono" maxlength="8" placeholder="00000000" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Dirección</label>
+                        <input v-model="perfil.direccion" maxlength="150" placeholder="Tu dirección" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                    <Button label="Cancelar" severity="secondary" icon="pi pi-times" class="rounded-2xl!" :disabled="perfilSaving" @click="perfilVisible = false" />
+                    <Button label="Guardar cambios" icon="pi pi-save" :loading="perfilSaving" class="rounded-2xl! bg-cyan-500! text-white! hover:bg-cyan-600!" @click="guardarPerfil" />
+                </div>
+            </div>
+        </Dialog>
+
+        <!-- ══════════════════ MODAL: CAMBIAR CONTRASEÑA ══════════════════ -->
+        <Dialog
+            v-model:visible="passVisible"
+            modal
+            header="Cambiar contraseña"
+            :style="{ width: 'min(460px, 95vw)', borderRadius: '20px' }"
         >
-            <i class="pi pi-exclamation-triangle mr-2"></i>
-            {{ perfilError }}
-        </div>
+            <div style="padding:4px 0;">
+                <!-- Aviso éxito -->
+                <div v-if="passMensaje" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                    <i class="pi pi-check-circle"></i> {{ passMensaje }}
+                </div>
+                <!-- Aviso error -->
+                <div v-if="passError" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#fff5f5; border:1px solid #fecaca; color:#991b1b; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
+                    <i class="pi pi-exclamation-triangle"></i> {{ passError }}
+                </div>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div>
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    Nombre de usuario
-                </label>
-                <input
-                    :value="`${perfil.usuario_nombre} ${perfil.usuario_apellido}`"
-                    disabled
-                    class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500"
-                />
+                <!-- Info de seguridad -->
+                <div style="margin-bottom:18px; padding:12px 14px; border-radius:12px; background:#f0f9ff; border:1px solid #bae6fd;">
+                    <div style="font-size:12px; font-weight:700; color:#0369a1; display:flex; align-items:center; gap:6px;">
+                        <i class="pi pi-info-circle"></i> Requisitos de la nueva contraseña
+                    </div>
+                    <div style="font-size:11px; color:#0369a1; margin-top:6px; line-height:1.7;">
+                        · Mínimo 8 caracteres &nbsp;·&nbsp; Al menos una letra &nbsp;·&nbsp; Al menos un número
+                    </div>
+                </div>
+
+                <!-- Campo: contraseña actual -->
+                <div style="margin-bottom:14px;">
+                    <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Contraseña actual</label>
+                    <div style="position:relative;">
+                        <input
+                            v-model="passForm.password_actual"
+                            :type="showPass.actual ? 'text' : 'password'"
+                            placeholder="Tu contraseña actual"
+                            style="width:100%; height:44px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 44px 0 14px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'"
+                        />
+                        <button
+                            type="button"
+                            @click="showPass.actual = !showPass.actual"
+                            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;"
+                        >
+                            <i :class="`pi ${showPass.actual ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Campo: nueva contraseña -->
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Nueva contraseña</label>
+                    <div style="position:relative;">
+                        <input
+                            v-model="passForm.password_nuevo"
+                            :type="showPass.nuevo ? 'text' : 'password'"
+                            placeholder="Nueva contraseña"
+                            style="width:100%; height:44px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 44px 0 14px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'"
+                        />
+                        <button
+                            type="button"
+                            @click="showPass.nuevo = !showPass.nuevo"
+                            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;"
+                        >
+                            <i :class="`pi ${showPass.nuevo ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra de fuerza -->
+                <div v-if="passForm.password_nuevo" style="margin-bottom:14px;">
+                    <div style="display:flex; gap:4px; margin-bottom:4px;">
+                        <div v-for="i in 5" :key="i" :style="`height:4px; flex:1; border-radius:4px; background: ${i <= passwordStrength ? passwordStrengthColor : '#e2e8f0'}; transition:background 0.3s;`"></div>
+                    </div>
+                    <div style="font-size:11px; font-weight:700;" :style="`color: ${passwordStrengthColor}`">
+                        {{ passwordStrengthLabel }}
+                    </div>
+                </div>
+
+                <!-- Campo: confirmar nueva contraseña -->
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Confirmar nueva contraseña</label>
+                    <div style="position:relative;">
+                        <input
+                            v-model="passForm.password_nuevo_confirmation"
+                            :type="showPass.confirm ? 'text' : 'password'"
+                            placeholder="Repite la nueva contraseña"
+                            style="width:100%; height:44px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 44px 0 14px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'"
+                        />
+                        <button
+                            type="button"
+                            @click="showPass.confirm = !showPass.confirm"
+                            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;"
+                        >
+                            <i :class="`pi ${showPass.confirm ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
+                        </button>
+                    </div>
+                    <!-- Indicador de coincidencia -->
+                    <div
+                        v-if="passForm.password_nuevo_confirmation && passForm.password_nuevo"
+                        style="margin-top:5px; font-size:11px; font-weight:700; display:flex; align-items:center; gap:4px;"
+                        :style="`color: ${passForm.password_nuevo === passForm.password_nuevo_confirmation ? '#16a34a' : '#dc2626'}`"
+                    >
+                        <i :class="`pi ${passForm.password_nuevo === passForm.password_nuevo_confirmation ? 'pi-check-circle' : 'pi-times-circle'}`"></i>
+                        {{ passForm.password_nuevo === passForm.password_nuevo_confirmation ? 'Las contraseñas coinciden' : 'Las contraseñas no coinciden' }}
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <Button label="Cancelar" severity="secondary" icon="pi pi-times" class="rounded-2xl!" :disabled="passSaving" @click="passVisible = false" />
+                    <Button
+                        label="Actualizar contraseña"
+                        icon="pi pi-lock"
+                        :loading="passSaving"
+                        :disabled="!passForm.password_actual || !passForm.password_nuevo || !passForm.password_nuevo_confirmation"
+                        class="rounded-2xl! bg-cyan-500! text-white! hover:bg-cyan-600!"
+                        @click="guardarPassword"
+                    />
+                </div>
             </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    Correo
-                </label>
-                <input
-                    v-model="perfil.correo"
-                    type="email"
-                    class="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                />
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    Nombre del paciente
-                </label>
-                <input
-                    :value="`${perfil.paciente_nombres} ${perfil.paciente_apellidos}`"
-                    disabled
-                    class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500"
-                />
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    Fecha de nacimiento
-                </label>
-                <input
-                    :value="perfil.fecha_nacimiento || '—'"
-                    disabled
-                    class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-bold text-slate-500"
-                />
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    DUI
-                </label>
-                <input
-                    v-model="perfil.dui"
-                    maxlength="9"
-                    placeholder="000000000"
-                    class="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                />
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    Teléfono
-                </label>
-                <input
-                    v-model="perfil.telefono"
-                    maxlength="8"
-                    placeholder="00000000"
-                    class="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                />
-            </div>
-
-            <div class="md:col-span-2">
-                <label class="mb-2 block text-sm font-black text-slate-700">
-                    Dirección
-                </label>
-                <textarea
-                    v-model="perfil.direccion"
-                    maxlength="150"
-                    rows="3"
-                    placeholder="Dirección del paciente"
-                    class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
-                ></textarea>
-
-                <p class="mt-1 text-right text-xs font-bold text-slate-400">
-                    {{ perfil.direccion?.length || 0 }}/150
-                </p>
-            </div>
-        </div>
-
-        <div class="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-            <Button
-                label="Cerrar"
-                icon="pi pi-times"
-                severity="secondary"
-                class="rounded-2xl!"
-                :disabled="perfilSaving"
-                @click="perfilVisible = false"
-            />
-
-            <Button
-                label="Guardar cambios"
-                icon="pi pi-save"
-                class="rounded-2xl! bg-cyan-500! text-white! hover:bg-cyan-600!"
-                :loading="perfilSaving"
-                @click="guardarPerfil"
-            />
-        </div>
-    </div>
-</Dialog>
+        </Dialog>
 
     </div>
 </template>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+
+.sm-show { display: flex; }
+.lg-visible { transform: translateX(-100%); }
+
+@media (min-width: 1024px) {
+    .lg-visible { transform: translateX(0) !important; }
+    .main-content { padding-left: 260px; }
+}
+@media (max-width: 640px) {
+    .sm-show { display: none !important; }
+}
+</style>

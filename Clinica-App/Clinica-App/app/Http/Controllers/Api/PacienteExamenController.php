@@ -25,14 +25,12 @@ class PacienteExamenController extends Controller
             ], 403);
         }
 
-        $paciente = $usuario->paciente;
-
-        $query = Orden::with([
+        // Corrección de privacidad: forzamos la consulta desde la relación del paciente
+        $query = $usuario->paciente->ordenes()->with([
                 'cita',
                 'detalles.examen',
                 'detalles.resultado',
             ])
-            ->where('paciente_id', $paciente->id)
             ->orderBy('fecha_orden', 'desc')
             ->orderBy('id', 'desc');
 

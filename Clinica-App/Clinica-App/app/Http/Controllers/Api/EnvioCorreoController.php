@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\EnvioCorreo;
+use App\Models\Resultado;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ResultadoLaboratorioMail;
 
 class EnvioCorreoController extends Controller
 {
@@ -110,5 +113,75 @@ class EnvioCorreoController extends Controller
             'ok' => true,
             'mensaje' => 'Registro de envío eliminado correctamente'
         ]);
+    }
+
+    // --- NUEVO MÉTODO: REENVIAR CORREO ---
+    public function reenviar(Request $request, string $resultadoId)
+    {
+        $usuario = $request->user();
+        
+        // Verificamos que sea un usuario autorizado (recepción o admin)
+        if (!$usuario || !in_array($usuario->rol, ['recepcionista', 'administrador'])) {
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'No tienes permisos para reenviar correos.',
+            ], 403);
+        }
+
+        $resultado = Resultado::with([
+            'detalleOrden.orden.paciente.usuario',
+            'detalleOrden.examen'
+        ])->find($resultadoId);
+
+        if (!$resultado) {
+            return response()->json(['ok' => false, 'mensaje' => 'Resultado no encontrado.'], 404);
+        }
+
+        if (!$resultado->archivo_pdf) {
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'No se puede enviar el correo porque el PDF aún no se ha generado.',
+            ], 422);
+        }
+
+        $paciente = $resultado->detalleOrden->orden->paciente;
+        $examen = $resultado->detalleOrden->examen;
+
+        // Creamos un nuevo registro de intento de envío
+        $envio = EnvioCorreo::create([
+            'resultado_id' => $resultado->id,
+            'correo_destino' => $paciente->usuario->correo,
+            'estado_envio' => 'pendiente',
+        ]);
+
+        try {
+            // Disparamos el correo
+            Mail::to($paciente->usuario->correo)->send(new ResultadoLaboratorioMail($paciente, $examen, $resultado->archivo_pdf));
+            
+            // Actualizamos estados a exitosos
+            $envio->update([
+                'estado_envio' => 'enviado', 
+                'fecha_envio' => now()->timezone('America/El_Salvador')
+            ]);
+            
+            $resultado->update(['correo_enviado' => true]);
+
+            return response()->json([
+                'ok' => true,
+                'mensaje' => 'Correo reenviado exitosamente al paciente.',
+            ]);
+
+        } catch (\Exception $e) {
+            // Si hay error, lo marcamos fallido y guardamos el log
+            $envio->update([
+                'estado_envio' => 'fallido', 
+                'error_detalle' => substr($e->getMessage(), 0, 250)
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'mensaje' => 'Error al enviar el correo. Verifique la conexión a internet o credenciales.',
+            ], 500);
+        }
     }
 }
