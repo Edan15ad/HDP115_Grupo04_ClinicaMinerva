@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Resultado;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 
 class PacienteResultadoController extends Controller
@@ -81,4 +82,59 @@ class PacienteResultadoController extends Controller
             'data' => $resultado,
         ]);
     }
+
+    public function pdf(Request $request, string $id)
+{
+    $usuario = $request->user();
+
+    if (!$usuario) {
+        return response()->json([
+            'ok' => false,
+            'mensaje' => 'No autenticado.',
+        ], 401);
+    }
+
+    $resultado = Resultado::with([
+        'detalleOrden.orden.paciente.usuario:id,nombre,apellido,correo,rol,estado',
+        'detalleOrden.examen',
+    ])->find($id);
+
+    if (!$resultado) {
+        abort(404, 'Resultado no encontrado.');
+    }
+
+    $pacienteResultado = $resultado->detalleOrden?->orden?->paciente;
+
+    $esDuenio = $usuario->rol === 'paciente'
+        && $usuario->paciente
+        && $pacienteResultado
+        && $usuario->paciente->id === $pacienteResultado->id;
+
+    $rolAutorizado = in_array($usuario->rol, [
+        'laboratorio',
+        'recepcionista',
+        'administrador',
+    ]);
+
+    if (!$esDuenio && !$rolAutorizado) {
+        abort(403, 'No tienes permisos para ver este PDF.');
+    }
+
+    if (!$resultado->archivo_pdf) {
+        abort(404, 'Este resultado no tiene PDF generado.');
+    }
+
+    if (!Storage::disk('public')->exists($resultado->archivo_pdf)) {
+        abort(404, 'El archivo PDF no existe en el almacenamiento.');
+    }
+
+    return Storage::disk('public')->response(
+        $resultado->archivo_pdf,
+        'Resultado_' . ($resultado->detalleOrden?->examen?->codigo ?? $resultado->id) . '.pdf',
+        [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Resultado_' . ($resultado->detalleOrden?->examen?->codigo ?? $resultado->id) . '.pdf"',
+        ]
+    );
+}
 }

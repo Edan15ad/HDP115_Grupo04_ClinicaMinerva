@@ -491,17 +491,28 @@ const abrirModalResultadoPaciente = async (resultadoUnificado) => {
 
 const cerrarModalResultadoPaciente = () => { resultadoPacienteVisible.value = false; };
 
-//Ver PDF 
+// Ver PDF desde tabla de resultados
 const verPdfResultado = (resultadoUnificado) => {
-    const path = resultadoUnificado?.raw?.archivo_pdf ?? null;
-    if (!path) { alert('Este resultado aún no tiene PDF generado.'); return; }
-    window.open(`/storage/${path}`, '_blank');
+    const id = resultadoUnificado?.raw?.id;
+
+    if (!id) {
+        alert('No se encontró el resultado seleccionado.');
+        return;
+    }
+
+    window.open(`/api/paciente/resultados/${id}/pdf`, '_blank');
 };
 
+// Ver PDF desde modal del paciente
 const verPdfResultadoPaciente = () => {
-    const path = resultadoPacienteSeleccionado.value?.archivo_pdf ?? null;
-    if (!path) { alert('Este resultado aún no tiene PDF generado.'); return; }
-    window.open(`/storage/${path}`, '_blank');
+    const id = resultadoPacienteSeleccionado.value?.id;
+
+    if (!id) {
+        alert('No se encontró el resultado seleccionado.');
+        return;
+    }
+
+    window.open(`/api/paciente/resultados/${id}/pdf`, '_blank');
 };
 
 //Reenviar correo 

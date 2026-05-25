@@ -11,7 +11,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Recuperar contraseña" />
+    <Head title="Recuperar contraseña"/>
 
     <div style="min-height:100vh; background:#0f172a; font-family:'DM Sans','Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; padding:24px; position:relative; overflow:hidden;">
 

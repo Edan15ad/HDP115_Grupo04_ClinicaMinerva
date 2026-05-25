@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\CitaController;
 use App\Http\Controllers\Api\LaboratorioResultadoController;
 use App\Http\Controllers\Api\PacienteResultadoController;
 use App\Http\Controllers\Api\EnvioCorreoController;
-use App\Http\Controllers\Api\CambiarPasswordController; // <-- NUEVO
+use App\Http\Controllers\Api\CambiarPasswordController; 
 
 // Pantalla de Bienvenida
 Route::get('/', function () {
@@ -74,6 +74,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::post('/api/correos/reenviar/{resultadoId}', [EnvioCorreoController::class, 'reenviar'])
         ->name('api.correos.reenviar');
+
+    Route::get('/api/paciente/resultados/{id}/pdf', [PacienteResultadoController::class, 'pdf'])
+    ->name('api.paciente.resultados.pdf');    
 });
 
 require __DIR__.'/settings.php';
