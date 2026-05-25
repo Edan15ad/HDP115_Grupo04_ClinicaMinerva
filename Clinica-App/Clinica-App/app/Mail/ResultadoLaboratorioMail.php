@@ -24,11 +24,16 @@ class ResultadoLaboratorioMail extends Mailable
 
     public function build()
     {
-        return $this->subject('Tus Resultados Clínicos - Clínica Minerva')
-                    ->view('emails.resultado')
-                    ->attach(Storage::disk('public')->path($this->pdfPath), [
-                        'as' => 'Resultado_' . $this->examen->codigo . '.pdf',
-                        'mime' => 'application/pdf',
-                    ]);
+        $mail = $this->subject('Tus Resultados Clínicos - Clínica Minerva')
+            ->view('emails.resultado');
+
+        if ($this->pdfPath && Storage::disk('public')->exists($this->pdfPath)) {
+            $mail->attach(Storage::disk('public')->path($this->pdfPath), [
+                'as' => 'Resultado_' . $this->examen->codigo . '.pdf',
+                'mime' => 'application/pdf',
+            ]);
+        }
+
+        return $mail;
     }
 }
