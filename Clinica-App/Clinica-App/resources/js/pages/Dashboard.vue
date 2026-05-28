@@ -57,7 +57,7 @@ const filtros = ref({
     usuarios:   { fecha: '', usuario: '', estado: '' },
 });
 
-//Roles 
+// Roles
 const userRole = computed(() => String(page.props.auth?.user?.rol ?? '').toLowerCase());
 const esPaciente       = computed(() => userRole.value === 'paciente');
 const esLaboratorio    = computed(() => userRole.value === 'laboratorio');
@@ -67,24 +67,21 @@ const puedeVerPdfYReenviar = computed(() => esRecepcionista.value || esAdministr
 const puedeRegistrarResultados = computed(() => esLaboratorio.value);
 const puedeGestionarMuestra = computed(() => esRecepcionista.value || esAdministrador.value);
 
-//Helpers 
+// Helpers
 const unwrap = (payload) => {
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.data)) return payload.data;
     return [];
 };
 
-//Carga de datos por rol 
+// Carga de datos por rol
 const fetchAll = async () => {
     loading.value = true;
     try {
         if (esPaciente.value) {
-            // Paciente: solo sus propios resultados (filtrado en backend)
             const res = await axios.get('/api/paciente/resultados');
             resultados.value = unwrap(res.data);
-
         } else if (esLaboratorio.value) {
-            // Laboratorio: exámenes, órdenes, resultados registrados y pendientes
             const [examenesRes, ordenesRes, resultadosRes, pendientesRes] = await Promise.all([
                 axios.get('/api/examenes'),
                 axios.get('/api/ordenes'),
@@ -95,9 +92,7 @@ const fetchAll = async () => {
             ordenes.value  = unwrap(ordenesRes.data);
             resultadosTodos.value = unwrap(resultadosRes.data);
             pendientesLaboratorio.value = unwrap(pendientesRes.data);
-
         } else if (esRecepcionista.value) {
-            // Recepcionista: pacientes, citas, órdenes, resultados, correos
             const [pacientesRes, citasRes, ordenesRes, resultadosRes, correoRes] = await Promise.all([
                 axios.get('/api/pacientes'),
                 axios.get('/api/citas'),
@@ -110,9 +105,7 @@ const fetchAll = async () => {
             ordenes.value      = unwrap(ordenesRes.data);
             resultadosTodos.value = unwrap(resultadosRes.data);
             enviosCorreo.value = unwrap(correoRes.data);
-
         } else if (esAdministrador.value) {
-            // Administrador: todo
             const [usuariosRes, pacientesRes, examenesRes, citasRes, ordenesRes, resultadosRes, correoRes] = await Promise.all([
                 axios.get('/api/usuarios'),
                 axios.get('/api/pacientes'),
@@ -139,7 +132,7 @@ const fetchAll = async () => {
 
 onMounted(fetchAll);
 
-//Formateo 
+// Formateo
 const formatFecha = (value) => {
     if (!value) return '—';
     return String(value).slice(0, 10);
@@ -184,24 +177,24 @@ const getEstadoExamenOrden = (orden) => {
 
 const textoEstadoExamenOrden = (estado) => {
     const labels = {
-        finalizado:    'Procesado',
-        en_proceso:    'Pendiente de resultado',
-        muestra_tomada:'Muestra tomada',
-        pendiente:     'Pendiente',
-        cancelado:     'Cancelado',
-        en_laboratorio:'Pendiente de resultado',
+        finalizado:     'Procesado',
+        en_proceso:     'Pendiente de resultado',
+        muestra_tomada: 'Muestra tomada',
+        pendiente:      'Pendiente',
+        cancelado:      'Cancelado',
+        en_laboratorio: 'Pendiente de resultado',
     };
     return labels[String(estado ?? '').toLowerCase()] ?? estado ?? '—';
 };
 
 const textoEstadoOrden = (estado) => {
     const labels = {
-        pendiente:     'Pendiente',
-        recepcionado:  'Recepcionado',
-        en_laboratorio:'En laboratorio',
-        finalizado:    'Finalizado',
-        entregado:     'Entregado',
-        cancelado:     'Cancelado',
+        pendiente:      'Pendiente',
+        recepcionado:   'Recepcionado',
+        en_laboratorio: 'En laboratorio',
+        finalizado:     'Finalizado',
+        entregado:      'Entregado',
+        cancelado:      'Cancelado',
     };
     return labels[String(estado ?? '').toLowerCase()] ?? estado ?? '—';
 };
@@ -216,14 +209,14 @@ const textoDisponibilidadExamen = (estado) => {
 const textoEstadoResultado = (estado) => {
     const labels = {
         pendiente_resultado: 'Pendiente resultado',
-        borrador:  'Borrador',
-        finalizado:'Procesado',
-        enviado:   'Enviado',
+        borrador:   'Borrador',
+        finalizado: 'Procesado',
+        enviado:    'Enviado',
     };
     return labels[String(estado ?? '').toLowerCase()] ?? estado ?? '—';
 };
 
-//Computed estadísticas 
+// Computed estadísticas
 const citasPendientes = computed(() =>
     citas.value.filter((c) => ['agendada', 'confirmada'].includes(String(c.estado).toLowerCase())).length
 );
@@ -242,23 +235,22 @@ const cards = computed(() => {
     if (esPaciente.value) {
         const finalizados = resultados.value.filter((r) => ['finalizado','enviado'].includes(String(r.estado).toLowerCase())).length;
         return [
-            { title: 'Mis resultados', value: resultados.value.length, icon: 'pi pi-file-check', color: 'teal', description: 'Resultados disponibles' },
-            { title: 'Procesados', value: finalizados, icon: 'pi pi-check-circle', color: 'emerald', description: 'Resultados finalizados' },
+            { title: 'Mis resultados', value: resultados.value.length, icon: 'pi-file-check', color: 'teal', description: 'Resultados disponibles' },
+            { title: 'Procesados', value: finalizados, icon: 'pi-check-circle', color: 'emerald', description: 'Resultados finalizados' },
         ];
     }
     if (esLaboratorio.value) {
         return [
-            { title: 'Pendientes', value: pendientesLaboratorio.value.length, icon: 'pi pi-hourglass', color: 'amber', description: 'Exámenes por procesar' },
-            { title: 'Registrados', value: resultadosTodos.value.length, icon: 'pi pi-file-check', color: 'teal', description: 'Resultados ingresados' },
-            { title: 'Órdenes activas', value: ordenesPendientes.value, icon: 'pi pi-clipboard', color: 'blue', description: 'En laboratorio' },
+            { title: 'Pendientes', value: pendientesLaboratorio.value.length, icon: 'pi-hourglass', color: 'amber', description: 'Exámenes por procesar' },
+            { title: 'Registrados', value: resultadosTodos.value.length, icon: 'pi-file-check', color: 'teal', description: 'Resultados ingresados' },
+            { title: 'Órdenes activas', value: ordenesPendientes.value, icon: 'pi-clipboard', color: 'blue', description: 'En laboratorio' },
         ];
     }
-    // Recepcionista y administrador
     return [
-        { title: 'Pacientes', value: pacientes.value.length, icon: 'pi pi-users', color: 'cyan', description: 'Pacientes registrados' },
-        { title: 'Citas pendientes', value: citasPendientes.value, icon: 'pi pi-calendar-clock', color: 'emerald', description: 'Agendadas o confirmadas' },
-        { title: 'Órdenes activas', value: ordenesPendientes.value, icon: 'pi pi-clipboard', color: 'blue', description: 'Pendientes o en laboratorio' },
-        { title: 'Resultados listos', value: resultadosFinalizados.value, icon: 'pi pi-file-check', color: 'teal', description: 'Resultados procesados' },
+        { title: 'Pacientes', value: pacientes.value.length, icon: 'pi-users', color: 'cyan', description: 'Pacientes registrados' },
+        { title: 'Citas pendientes', value: citasPendientes.value, icon: 'pi-calendar-clock', color: 'emerald', description: 'Agendadas o confirmadas' },
+        { title: 'Órdenes activas', value: ordenesPendientes.value, icon: 'pi-clipboard', color: 'blue', description: 'Pendientes o en laboratorio' },
+        { title: 'Resultados listos', value: resultadosFinalizados.value, icon: 'pi-file-check', color: 'teal', description: 'Resultados procesados' },
     ];
 });
 
@@ -289,7 +281,7 @@ const badgeClass = (estado) => {
     return 'bg-slate-100 text-slate-700';
 };
 
-//Filtros 
+// Filtros
 const pacientesFiltrados = computed(() => {
     const f = filtros.value.pacientes;
     return pacientes.value.filter((p) => {
@@ -322,9 +314,7 @@ const ordenesFiltradas = computed(() => {
     });
 });
 
-//Resultados unificados 
-// PACIENTE: usa resultados (solo los suyos, cargados desde /api/paciente/resultados)
-// OTROS ROLES: usa resultadosTodos + pendientesLaboratorio
+// Resultados unificados
 const resultadosUnificados = computed(() => {
     if (esPaciente.value) {
         return resultados.value.map((r) => ({
@@ -360,7 +350,6 @@ const resultadosUnificados = computed(() => {
         return [...pendientes, ...registrados];
     }
 
-    // Recepcionista / Administrador
     return resultadosTodos.value.map((r) => ({
         tipo: 'registrado',
         estado_visual: r.estado,
@@ -396,7 +385,7 @@ const usuariosFiltrados = computed(() => {
     });
 });
 
-//Acciones citas 
+// Acciones citas
 const puedeTomarMuestra = (cita) =>
     puedeGestionarMuestra.value && ['agendada','confirmada'].includes(String(cita.estado ?? '').toLowerCase());
 
@@ -415,7 +404,7 @@ const marcarMuestraTomada = async (cita) => {
     }
 };
 
-//Modal laboratorio 
+// Modal laboratorio
 const abrirModalResultado = async (detalle) => {
     resultadoModalVisible.value = true;
     resultadoLoading.value = true;
@@ -444,24 +433,187 @@ const abrirModalResultado = async (detalle) => {
 
 const cerrarModalResultado = () => { resultadoModalVisible.value = false; };
 
+// Validaciones clínicas del modal de laboratorio
+const esParametroNumerico = (parametro) => {
+    return ['numero', 'decimal'].includes(String(parametro?.tipo_dato ?? '').toLowerCase());
+};
+
+const limpiarNumeroClinico = (valor) => {
+    if (valor === null || valor === undefined) return null;
+
+    const textoOriginal = String(valor).trim();
+    if (textoOriginal === '') return null;
+
+    const sinEspacios = textoOriginal.replace(/\s/g, '');
+    const tienePunto = sinEspacios.includes('.');
+    const tieneComa = sinEspacios.includes(',');
+
+    let normalizado = sinEspacios;
+
+    if (tienePunto && tieneComa) {
+        normalizado = normalizado.replace(/,/g, '');
+    } else if (tieneComa && !tienePunto) {
+        const partes = normalizado.split(',');
+        if (partes.length === 2 && partes[1].length <= 2) {
+            normalizado = `${partes[0]}.${partes[1]}`;
+        } else {
+            normalizado = normalizado.replace(/,/g, '');
+        }
+    }
+
+    const numero = Number(normalizado);
+    return Number.isFinite(numero) ? numero : null;
+};
+
+const rangoParametro = (parametro) => {
+    if (!esParametroNumerico(parametro)) return null;
+
+    const referencia = String(parametro?.valor_referencia ?? '').trim();
+    if (!referencia) return null;
+
+    const numeros = referencia.match(/-?\d+(?:[.,]\d+)*/g);
+    if (!numeros || numeros.length < 2) return null;
+
+    const min = limpiarNumeroClinico(numeros[0]);
+    const max = limpiarNumeroClinico(numeros[1]);
+
+    if (min === null || max === null) return null;
+
+    return {
+        min: Math.min(min, max),
+        max: Math.max(min, max),
+    };
+};
+
+const inputMinParametro = (parametro) => {
+    if (!esParametroNumerico(parametro)) return undefined;
+
+    const rango = rangoParametro(parametro);
+
+    if (rango?.min !== undefined && rango.min > 0) {
+        return rango.min;
+    }
+
+    return parametro.tipo_dato === 'numero' ? 1 : 0.01;
+};
+
+const inputMaxParametro = (parametro) => {
+    if (!esParametroNumerico(parametro)) return undefined;
+
+    const rango = rangoParametro(parametro);
+    return rango?.max ?? undefined;
+};
+
+const placeholderParametro = (parametro) => {
+    if (esParametroNumerico(parametro) && parametro.valor_referencia) {
+        return `Rango permitido: ${parametro.valor_referencia}`;
+    }
+
+    if (parametro.valor_referencia) {
+        return `Referencia: ${parametro.valor_referencia}`;
+    }
+
+    if (parametro.tipo_dato === 'decimal' || parametro.tipo_dato === 'numero') {
+        return 'Ingrese un valor mayor a 0';
+    }
+
+    return '';
+};
+
+const bloquearTeclasNumeroInvalido = (event, parametro) => {
+    if (!esParametroNumerico(parametro)) return;
+
+    const teclasInvalidas = ['-', '+', 'e', 'E'];
+
+    if (teclasInvalidas.includes(event.key)) {
+        event.preventDefault();
+        return;
+    }
+
+    if (parametro.tipo_dato === 'numero' && ['.', ','].includes(event.key)) {
+        event.preventDefault();
+    }
+};
+
+const sanitizarEntradaNumerica = (parametro) => {
+    if (!esParametroNumerico(parametro)) return;
+
+    let valor = String(resultadoForm.value[parametro.nombre_parametro] ?? '');
+
+    if (parametro.tipo_dato === 'numero') {
+        valor = valor.replace(/[^\d]/g, '');
+    } else {
+        valor = valor.replace(/[^\d.]/g, '');
+        const partes = valor.split('.');
+        if (partes.length > 2) {
+            valor = `${partes[0]}.${partes.slice(1).join('')}`;
+        }
+    }
+
+    resultadoForm.value[parametro.nombre_parametro] = valor;
+};
+
+const validarCampoParametro = (parametro) => {
+    const valor = resultadoForm.value[parametro.nombre_parametro];
+    const valorTexto = String(valor ?? '').trim();
+
+    if (parametro.obligatorio && valorTexto === '') {
+        return `El campo ${parametro.etiqueta} es obligatorio.`;
+    }
+
+    if (!esParametroNumerico(parametro)) return null;
+
+    if (valorTexto === '') return null;
+
+    const numero = limpiarNumeroClinico(valorTexto);
+
+    if (numero === null) {
+        return `El campo ${parametro.etiqueta} debe ser un número válido.`;
+    }
+
+    if (numero <= 0) {
+        return `El campo ${parametro.etiqueta} debe ser mayor a 0.`;
+    }
+
+    if (parametro.tipo_dato === 'numero' && !Number.isInteger(numero)) {
+        return `El campo ${parametro.etiqueta} debe ser un número entero.`;
+    }
+
+    const rango = rangoParametro(parametro);
+
+    if (rango && (numero < rango.min || numero > rango.max)) {
+        return `El campo ${parametro.etiqueta} debe estar entre ${rango.min} y ${rango.max}. Referencia: ${parametro.valor_referencia}.`;
+    }
+
+    return null;
+};
+
 const guardarResultadoLaboratorio = async () => {
     resultadoError.value = '';
     resultadoMensaje.value = '';
-    if (!detalleSeleccionado.value) { resultadoError.value = 'No hay examen seleccionado.'; return; }
-    for (const p of parametrosResultado.value) {
-        const v = resultadoForm.value[p.nombre_parametro];
-        if (p.obligatorio && (v === null || v === undefined || String(v).trim() === '')) {
-            resultadoError.value = `El campo ${p.etiqueta} es obligatorio.`;
+
+    if (!detalleSeleccionado.value) {
+        resultadoError.value = 'No hay examen seleccionado.';
+        return;
+    }
+
+    for (const parametro of parametrosResultado.value) {
+        const errorCampo = validarCampoParametro(parametro);
+        if (errorCampo) {
+            resultadoError.value = errorCampo;
             return;
         }
     }
+
     resultadoSaving.value = true;
+
     try {
         const response = await axios.post('/api/laboratorio/resultados', {
             detalle_orden_id: detalleSeleccionado.value.id,
             resultado_json: resultadoForm.value,
             observaciones_generales: observacionesResultado.value,
         });
+
         resultadoMensaje.value = response.data?.mensaje || 'Resultado registrado correctamente.';
         await fetchAll();
         setTimeout(() => { resultadoModalVisible.value = false; }, 800);
@@ -472,7 +624,7 @@ const guardarResultadoLaboratorio = async () => {
     }
 };
 
-//Modal paciente – ver resultado 
+// Modal paciente – ver resultado
 const abrirModalResultadoPaciente = async (resultadoUnificado) => {
     resultadoPacienteVisible.value = true;
     resultadoPacienteLoading.value = true;
@@ -515,7 +667,7 @@ const verPdfResultadoPaciente = () => {
     window.open(`/api/paciente/resultados/${id}/pdf`, '_blank');
 };
 
-//Reenviar correo 
+// Reenviar correo
 const reenviarCorreo = async (resultadoUnificado) => {
     const id = resultadoUnificado?.raw?.id ?? null;
     if (!id) { alert('No se pudo identificar el resultado.'); return; }
@@ -542,7 +694,7 @@ const reenviarCorreo = async (resultadoUnificado) => {
 
 const tienePdf = (resultadoUnificado) => !!resultadoUnificado?.raw?.archivo_pdf;
 
-//Helpers modal laboratorio 
+// Helpers modal laboratorio
 const codigoExamenSeleccionado = computed(() => detalleSeleccionado.value?.examen?.codigo ?? '');
 const pacienteSeleccionado = computed(() => detalleSeleccionado.value?.orden?.paciente ?? null);
 const usuarioPacienteSeleccionado = computed(() => pacienteSeleccionado.value?.usuario ?? null);
@@ -567,20 +719,20 @@ const valorResultadoPaciente = (parametro) => {
 };
 
 const opcionesPorParametro = {
-    'ORI001:color':    ['Amarillo','Ámbar','Pajizo','Rojizo','Marrón','Otro'],
-    'ORI001:aspecto':  ['Claro','Ligeramente turbio','Turbio'],
-    'ORI001:proteinas':['Negativo','Trazas','Positivo +','Positivo ++','Positivo +++'],
-    'ORI001:glucosa':  ['Negativo','Trazas','Positivo +','Positivo ++','Positivo +++'],
-    'ORI001:cetonas':  ['Negativo','Trazas','Positivo +','Positivo ++','Positivo +++'],
-    'ORI001:nitritos': ['Negativo','Positivo'],
+    'ORI001:color':     ['Amarillo','Ámbar','Pajizo','Rojizo','Marrón','Otro'],
+    'ORI001:aspecto':   ['Claro','Ligeramente turbio','Turbio'],
+    'ORI001:proteinas': ['Negativo','Trazas','Positivo +','Positivo ++','Positivo +++'],
+    'ORI001:glucosa':   ['Negativo','Trazas','Positivo +','Positivo ++','Positivo +++'],
+    'ORI001:cetonas':   ['Negativo','Trazas','Positivo +','Positivo ++','Positivo +++'],
+    'ORI001:nitritos':  ['Negativo','Positivo'],
     'ORI001:leucocitos':['Ausentes','Escasos','Moderados','Abundantes'],
     'ORI001:eritrocitos':['Ausentes','Escasos','Moderados','Abundantes'],
     'ORI001:bacterias': ['Ausentes','Escasas','Moderadas','Abundantes'],
-    'COP001:color':    ['Café','Marrón','Amarillo','Verde','Negro','Rojizo','Otro'],
+    'COP001:color':     ['Café','Marrón','Amarillo','Verde','Negro','Rojizo','Otro'],
     'COP001:consistencia':['Formada','Blanda','Pastosa','Líquida','Dura'],
-    'COP001:moco':     ['Ausente','Escaso','Moderado','Abundante'],
+    'COP001:moco':      ['Ausente','Escaso','Moderado','Abundante'],
     'COP001:sangre_oculta':['Negativo','Positivo'],
-    'COP001:parasitos':['No se observan','Quistes','Trofozoítos','Huevos','Larvas','Otros'],
+    'COP001:parasitos': ['No se observan','Quistes','Trofozoítos','Huevos','Larvas','Otros'],
     'COP001:leucocitos':['Ausentes','Escasos','Moderados','Abundantes'],
     'COP001:eritrocitos':['Ausentes','Escasos','Moderados','Abundantes'],
     'COP001:restos_alimenticios':['Ausentes','Escasos','Moderados','Abundantes'],
@@ -652,11 +804,8 @@ const inputStepParametro = (tipo) => tipo === 'decimal' ? '0.01' : tipo === 'num
         </div>
 
         <div v-else>
-
             <!-- ════ INICIO ════ -->
             <section v-if="activeModule === 'inicio'" style="display:flex; flex-direction:column; gap:24px;">
-
-                <!-- Cards de estadísticas -->
                 <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:16px;">
                     <div
                         v-for="card in cards"
@@ -678,19 +827,16 @@ const inputStepParametro = (tipo) => tipo === 'decimal' ? '0.01' : tipo === 'num
                     </div>
                 </div>
 
-                <!-- Panel bienvenida paciente -->
                 <div v-if="esPaciente" style="background:linear-gradient(135deg, #ecfeff, #f0f9ff); border:1px solid #bae6fd; border-radius:18px; padding:24px;">
                     <div style="font-size:16px; font-weight:800; color:#0e7490;">Bienvenido al portal del paciente</div>
                     <p style="font-size:13px; color:#0369a1; margin:8px 0 0; line-height:1.6;">Usa el menú lateral para consultar tus resultados, solicitar exámenes o revisar tus citas.</p>
                 </div>
 
-                <!-- Panel inicio laboratorio -->
                 <div v-if="esLaboratorio" style="background:linear-gradient(135deg, #eff6ff, #f0f9ff); border:1px solid #bfdbfe; border-radius:18px; padding:24px;">
                     <div style="font-size:16px; font-weight:800; color:#1d4ed8;">Exámenes pendientes de resultado</div>
                     <p style="font-size:13px; color:#2563eb; margin:8px 0 0; line-height:1.6;">Ve a la sección <strong>Resultados</strong> para registrar los valores clínicos de los exámenes pendientes.</p>
                 </div>
 
-                <!-- Tablas inicio recepcionista/admin -->
                 <div v-if="!esPaciente && !esLaboratorio" style="display:grid; grid-template-columns:2fr 1fr; gap:16px; flex-wrap:wrap;">
                     <Card class="rounded-3xl! shadow-sm">
                         <template #title>
@@ -940,20 +1086,16 @@ const inputStepParametro = (tipo) => tipo === 'decimal' ? '0.01' : tipo === 'num
                             </Column>
                             <Column header="Acciones" style="min-width:230px;">
                                 <template #body="{ data }">
-                                    <!-- Paciente -->
                                     <div v-if="esPaciente" class="flex flex-wrap gap-2">
                                         <Button label="Ver resultado" icon="pi pi-eye" size="small" class="rounded-2xl! bg-cyan-500! text-white! hover:bg-cyan-600!" @click="abrirModalResultadoPaciente(data)" />
                                     </div>
-                                    <!-- Laboratorio: pendiente -->
                                     <div v-else-if="esLaboratorio && data.tipo === 'pendiente'" class="flex flex-wrap gap-2">
                                         <Button label="Añadir resultado" icon="pi pi-plus" size="small" class="rounded-2xl! bg-cyan-500! text-white! hover:bg-cyan-600!" @click="abrirModalResultado(data.raw)" />
                                     </div>
-                                    <!-- Recepcionista / Admin -->
                                     <div v-else-if="puedeVerPdfYReenviar && data.tipo === 'registrado'" class="flex flex-wrap gap-2">
                                         <Button label="Ver PDF" icon="pi pi-file-pdf" size="small" :disabled="!tienePdf(data)" class="rounded-2xl! bg-slate-900! text-white! hover:bg-slate-700! disabled:opacity-40!" @click="verPdfResultado(data)" />
                                         <Button label="Reenviar correo" icon="pi pi-send" size="small" :disabled="!tienePdf(data) || reenvioLoading" :loading="reenvioLoading" class="rounded-2xl! bg-emerald-600! text-white! hover:bg-emerald-700! disabled:opacity-40!" @click="reenviarCorreo(data)" />
                                     </div>
-                                    <!-- Lab resultado ya registrado -->
                                     <div v-else-if="esLaboratorio && data.tipo === 'registrado'">
                                         <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Registrado</span>
                                     </div>
@@ -1080,6 +1222,7 @@ const inputStepParametro = (tipo) => tipo === 'decimal' ? '0.01' : tipo === 'num
                 </div>
                 <section class="rounded-3xl border border-slate-200 bg-white p-5">
                     <h3 class="text-lg font-black text-slate-950">Parámetros del resultado</h3>
+                    <p class="mt-1 text-sm text-slate-500">Los campos numéricos validan que el valor sea mayor a 0 y, si existe rango de referencia, que esté dentro del rango permitido.</p>
                     <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <div v-for="parametro in parametrosResultado" :key="parametro.id" class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                             <label class="mb-2 block text-sm font-black text-slate-700">{{ parametro.etiqueta }}<span v-if="parametro.obligatorio" class="text-red-500">*</span></label>
@@ -1091,11 +1234,23 @@ const inputStepParametro = (tipo) => tipo === 'decimal' ? '0.01' : tipo === 'num
                                 <option value="">Selecciona</option><option value="Positivo">Positivo</option><option value="Negativo">Negativo</option>
                             </select>
                             <textarea v-else-if="esObservacionParametro(parametro)" v-model="resultadoForm[parametro.nombre_parametro]" rows="3" class="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"></textarea>
-                            <input v-else v-model="resultadoForm[parametro.nombre_parametro]" :type="inputTypeParametro(parametro.tipo_dato)" :step="inputStepParametro(parametro.tipo_dato)" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                            <input
+                                v-else
+                                v-model="resultadoForm[parametro.nombre_parametro]"
+                                :type="inputTypeParametro(parametro.tipo_dato)"
+                                :step="inputStepParametro(parametro.tipo_dato)"
+                                :min="inputMinParametro(parametro)"
+                                :max="inputMaxParametro(parametro)"
+                                :placeholder="placeholderParametro(parametro)"
+                                :inputmode="esParametroNumerico(parametro) ? 'decimal' : undefined"
+                                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100"
+                                @keydown="bloquearTeclasNumeroInvalido($event, parametro)"
+                                @input="sanitizarEntradaNumerica(parametro)"
+                            />
                             <p v-if="parametro.unidad_medida || parametro.valor_referencia" class="mt-2 text-xs font-bold text-slate-500">
-                                <span v-if="parametro.unidad_medida">{{ parametro.unidad_medida }}</span>
+                                <span v-if="parametro.unidad_medida">Unidad: {{ parametro.unidad_medida }}</span>
                                 <span v-if="parametro.unidad_medida && parametro.valor_referencia"> · </span>
-                                <span v-if="parametro.valor_referencia">Ref: {{ parametro.valor_referencia }}</span>
+                                <span v-if="parametro.valor_referencia">Rango permitido: {{ parametro.valor_referencia }}</span>
                             </p>
                         </div>
                     </div>

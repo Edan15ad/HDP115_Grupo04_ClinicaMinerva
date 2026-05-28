@@ -15,6 +15,8 @@ const form = useForm({
     password_confirmation: '',
 });
 
+const today = new Date().toISOString().split('T')[0];
+
 const showPass    = ref(false);
 const showConfirm = ref(false);
 
@@ -110,6 +112,7 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                                     :onfocus="inputFocus" :onblur="inputBlur" />
                                 <small v-if="form.errors.nombres" :style="errorStyle">{{ form.errors.nombres }}</small>
                             </div>
+
                             <!-- Apellidos -->
                             <div>
                                 <label :style="labelStyle">Apellidos</label>
@@ -118,14 +121,23 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                                     :onfocus="inputFocus" :onblur="inputBlur" />
                                 <small v-if="form.errors.apellidos" :style="errorStyle">{{ form.errors.apellidos }}</small>
                             </div>
+
                             <!-- Fecha nacimiento -->
                             <div>
                                 <label :style="labelStyle">Fecha de nacimiento</label>
-                                <input v-model="form.fecha_nacimiento" type="date"
+                                <input
+                                    v-model="form.fecha_nacimiento"
+                                    type="date"
+                                    :max="today"
                                     :style="inputStyle + (form.errors.fecha_nacimiento ? 'border-color:#fca5a5;' : '')"
-                                    :onfocus="inputFocus" :onblur="inputBlur" />
-                                <small v-if="form.errors.fecha_nacimiento" :style="errorStyle">{{ form.errors.fecha_nacimiento }}</small>
+                                    :onfocus="inputFocus"
+                                    :onblur="inputBlur"
+                                />
+                                <small v-if="form.errors.fecha_nacimiento" :style="errorStyle">
+                                    {{ form.errors.fecha_nacimiento }}
+                                </small>
                             </div>
+
                             <!-- Género -->
                             <div>
                                 <label :style="labelStyle">Género</label>
@@ -169,6 +181,7 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                                         :onfocus="inputFocus" :onblur="inputBlur" />
                                     <small v-if="form.errors.dui" :style="errorStyle">{{ form.errors.dui }}</small>
                                 </div>
+
                                 <!-- Teléfono -->
                                 <div>
                                     <label :style="labelStyle">Teléfono</label>
@@ -213,6 +226,7 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                                         <i :class="`pi ${showPass ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
                                     </button>
                                 </div>
+
                                 <!-- Barra de fuerza -->
                                 <div v-if="form.password" style="margin-top:8px;">
                                     <div style="display:flex; gap:3px; margin-bottom:3px;">
@@ -239,6 +253,7 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                                         <i :class="`pi ${showConfirm ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
                                     </button>
                                 </div>
+
                                 <!-- Coincidencia -->
                                 <div v-if="passwordsMatch !== null"
                                     style="margin-top:6px; font-size:10px; font-weight:700; display:flex; align-items:center; gap:4px;"
