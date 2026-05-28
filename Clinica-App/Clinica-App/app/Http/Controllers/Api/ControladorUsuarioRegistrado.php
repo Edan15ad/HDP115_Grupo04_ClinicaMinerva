@@ -20,33 +20,32 @@ class ControladorUsuarioRegistrado extends Controller
 
     public function store(Request $request)
     {
-
         $request->validate([
             'nombres' => 'required|string|max:60',
             'apellidos' => 'required|string|max:60',
             'correo' => 'required|string|email|max:100|unique:usuarios,correo',
-            'password' => 'required|string|min:6|confirmed', 
-            'dui' => 'nullable|string|size:9|unique:pacientes,dui', 
+            'password' => 'required|string|min:6|confirmed',
+            'dui' => 'nullable|string|size:9|unique:pacientes,dui',
             'telefono' => 'nullable|string|max:8',
-            'fecha_nacimiento' => 'nullable|date',
+            'fecha_nacimiento' => 'nullable|date|before_or_equal:today',
             'genero' => 'nullable|string|max:20',
             'direccion' => 'nullable|string|max:150',
         ], [
-            
             'dui.unique' => 'Este número de DUI ya está registrado en el sistema. Por favor, verifícalo e insértalo correctamente.',
             'dui.size' => 'El número de DUI debe tener exactamente 9 dígitos sin guiones.',
             'correo.unique' => 'Este correo electrónico ya está en uso. Por favor, intenta iniciar sesión.',
+            'fecha_nacimiento.date' => 'La fecha de nacimiento no tiene un formato válido.',
+            'fecha_nacimiento.before_or_equal' => 'La fecha de nacimiento no puede ser mayor a la fecha actual.',
         ]);
 
         try {
             $usuario = DB::transaction(function () use ($request) {
-                
                 $user = Usuario::create([
                     'nombre' => $request->nombres,
                     'apellido' => $request->apellidos,
                     'correo' => $request->correo,
                     'password' => Hash::make($request->password),
-                    'rol' => 'paciente', 
+                    'rol' => 'paciente',
                     'estado' => 'activo',
                 ]);
 
@@ -65,10 +64,12 @@ class ControladorUsuarioRegistrado extends Controller
             });
 
             Auth::login($usuario);
-            return redirect()->route('dashboard');
 
+            return redirect()->route('dashboard');
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Error al crear la cuenta. Intente nuevamente.']);
+            return back()->withErrors([
+                'error' => 'Error al crear la cuenta. Intente nuevamente.',
+            ]);
         }
     }
 }
