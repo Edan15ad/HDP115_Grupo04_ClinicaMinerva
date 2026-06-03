@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UsuarioSeeder::class,
             PacienteSeeder::class, // Agregamos este para que el paciente tenga perfil
+            ExamenesBaseSeeder::class,
+            ParametrosResultadoBaseSeeder::class,
         ]);
     }
 }
