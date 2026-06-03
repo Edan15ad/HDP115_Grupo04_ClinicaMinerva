@@ -8,7 +8,9 @@ use App\Http\Controllers\Api\CitaController;
 use App\Http\Controllers\Api\LaboratorioResultadoController;
 use App\Http\Controllers\Api\PacienteResultadoController;
 use App\Http\Controllers\Api\EnvioCorreoController;
-use App\Http\Controllers\Api\CambiarPasswordController; 
+use App\Http\Controllers\Api\CambiarPasswordController;
+use App\Http\Controllers\Api\RecepcionRegistroPacienteController;  // NUEVO
+use App\Http\Controllers\Api\AdminRegistroUsuarioController;        // NUEVO
 
 // Pantalla de Bienvenida
 Route::get('/', function () {
@@ -31,7 +33,7 @@ Route::middleware(['auth'])->group(function () {
         return inertia('Paciente/MisExamenes');
     })->name('paciente.mis-examenes');
 
-    // API interna para el módulo del paciente
+    // API paciente
     Route::get('/api/paciente/mis-examenes', [PacienteExamenController::class, 'misExamenes'])
         ->name('api.paciente.mis-examenes');
 
@@ -50,13 +52,23 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/api/paciente/perfil', [PacientePerfilController::class, 'update'])
         ->name('api.paciente.perfil.update');
 
-    // NUEVO: Cambiar contraseña (disponible para todos los roles)
+    // Cambiar contraseña (todos los roles)
     Route::put('/api/usuario/cambiar-password', [CambiarPasswordController::class, 'update'])
         ->name('api.usuario.cambiar-password');
 
+    // Recepción
     Route::put('/api/recepcion/citas/{id}/muestra-tomada', [CitaController::class, 'marcarMuestraTomada'])
         ->name('api.recepcion.citas.muestra-tomada');
 
+    // NUEVO: Recepcionista registra paciente presencial
+    Route::post('/api/recepcion/registrar-paciente', [RecepcionRegistroPacienteController::class, 'store'])
+        ->name('api.recepcion.registrar-paciente');
+
+    // NUEVO: Administrador crea usuario con cualquier rol
+    Route::post('/api/admin/registrar-usuario', [AdminRegistroUsuarioController::class, 'store'])
+        ->name('api.admin.registrar-usuario');
+
+    // Laboratorio
     Route::get('/api/laboratorio/resultados-pendientes', [LaboratorioResultadoController::class, 'pendientes'])
         ->name('api.laboratorio.resultados-pendientes');
 
@@ -66,17 +78,19 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api/laboratorio/resultados', [LaboratorioResultadoController::class, 'store'])
         ->name('api.laboratorio.resultados.store');
 
+    // Resultados paciente
     Route::get('/api/paciente/resultados', [PacienteResultadoController::class, 'index'])
         ->name('api.paciente.resultados.index');
 
     Route::get('/api/paciente/resultados/{id}', [PacienteResultadoController::class, 'show'])
         ->name('api.paciente.resultados.show');
 
+    Route::get('/api/paciente/resultados/{id}/pdf', [PacienteResultadoController::class, 'pdf'])
+        ->name('api.paciente.resultados.pdf');
+
+    // Correos
     Route::post('/api/correos/reenviar/{resultadoId}', [EnvioCorreoController::class, 'reenviar'])
         ->name('api.correos.reenviar');
-
-    Route::get('/api/paciente/resultados/{id}/pdf', [PacienteResultadoController::class, 'pdf'])
-    ->name('api.paciente.resultados.pdf');    
 });
 
 require __DIR__.'/settings.php';
