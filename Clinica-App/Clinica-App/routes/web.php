@@ -9,8 +9,8 @@ use App\Http\Controllers\Api\LaboratorioResultadoController;
 use App\Http\Controllers\Api\PacienteResultadoController;
 use App\Http\Controllers\Api\EnvioCorreoController;
 use App\Http\Controllers\Api\CambiarPasswordController;
-use App\Http\Controllers\Api\RecepcionRegistroPacienteController;  // NUEVO
-use App\Http\Controllers\Api\AdminRegistroUsuarioController;        // NUEVO
+use App\Http\Controllers\Api\RecepcionRegistroPacienteController;  
+use App\Http\Controllers\Api\AdminRegistroUsuarioController;        
 
 // Pantalla de Bienvenida
 Route::get('/', function () {
@@ -60,11 +60,11 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/api/recepcion/citas/{id}/muestra-tomada', [CitaController::class, 'marcarMuestraTomada'])
         ->name('api.recepcion.citas.muestra-tomada');
 
-    // NUEVO: Recepcionista registra paciente presencial
+    // Recepcionista registra paciente presencial
     Route::post('/api/recepcion/registrar-paciente', [RecepcionRegistroPacienteController::class, 'store'])
         ->name('api.recepcion.registrar-paciente');
 
-    // NUEVO: Administrador crea usuario con cualquier rol
+    // Administrador crea usuario con cualquier rol
     Route::post('/api/admin/registrar-usuario', [AdminRegistroUsuarioController::class, 'store'])
         ->name('api.admin.registrar-usuario');
 
