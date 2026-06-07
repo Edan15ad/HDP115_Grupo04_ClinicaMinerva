@@ -42,8 +42,19 @@ const submit = () => {
                 <p style="font-size:13px; color:#94a3b8; margin:0;">Ingresa con tu correo y contraseña.</p>
             </div>
 
-            <!-- Error -->
-            <div v-if="form.errors.correo || form.errors.password"
+            <!-- Error cuenta inactiva -->
+            <div v-if="form.errors.correo && form.errors.correo.includes('inactiva')"
+                style="margin-bottom:18px; padding:16px; border-radius:12px; background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:13px; font-weight:600;">
+                <div style="font-weight:800; color:#b45309; margin-bottom:6px;">Cuenta inactiva</div>
+                <p style="margin:0; line-height:1.6;">{{ form.errors.correo }}</p>
+                <p style="margin:6px 0 0; font-size:12px; color:#b45309;">
+                    Contacta al administrador en
+                    <strong>mp21057@ues.edu.sv</strong>
+                </p>
+            </div>
+
+            <!-- Error credenciales incorrectas -->
+            <div v-else-if="form.errors.correo || form.errors.password"
                 style="margin-bottom:18px; padding:12px 14px; border-radius:12px; background:#fff5f5; border:1px solid #fecaca; color:#dc2626; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
                 <i class="pi pi-exclamation-circle"></i>
                 {{ form.errors.correo || form.errors.password }}
