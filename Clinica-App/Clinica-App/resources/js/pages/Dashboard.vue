@@ -775,9 +775,17 @@ const abrirModalPaciente = () => {
 };
 
 const guardarPaciente = async () => {
-    modalPacienteSaving.value = true;
     modalPacienteError.value  = '';
     modalPacienteMensaje.value = '';
+
+    const errorValidacion = validarPacienteAntesDeGuardar();
+    if (errorValidacion) {
+        modalPacienteError.value = errorValidacion;
+        return;
+    }
+
+    modalPacienteSaving.value = true;
+
     try {
         const response = await axios.post('/api/recepcion/registrar-paciente', formPaciente.value);
         if (response.data?.ok) {
@@ -816,6 +824,63 @@ const formUsuario = ref({
 
 const today = computed(() => new Date().toISOString().split('T')[0]);
 
+const soloNumeros = (valor, max = 99) => {
+    return String(valor ?? '').replace(/\D/g, '').slice(0, max);
+};
+
+const esCorreoValido = (correo) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(correo ?? '').trim());
+};
+
+const normalizarPacienteNumeros = () => {
+    formPaciente.value.dui = soloNumeros(formPaciente.value.dui, 9);
+    formPaciente.value.telefono = soloNumeros(formPaciente.value.telefono, 8);
+};
+
+const normalizarUsuarioNumeros = () => {
+    formUsuario.value.dui = soloNumeros(formUsuario.value.dui, 9);
+    formUsuario.value.telefono = soloNumeros(formUsuario.value.telefono, 8);
+};
+
+const validarPacienteAntesDeGuardar = () => {
+    normalizarPacienteNumeros();
+
+    if (!String(formPaciente.value.nombres ?? '').trim()) return 'El nombre del paciente es obligatorio.';
+    if (!String(formPaciente.value.apellidos ?? '').trim()) return 'El apellido del paciente es obligatorio.';
+    if (!String(formPaciente.value.correo ?? '').trim()) return 'El correo electrónico es obligatorio.';
+    if (!esCorreoValido(formPaciente.value.correo)) return 'Ingresa un correo electrónico válido.';
+    if (!String(formPaciente.value.dui ?? '').trim()) return 'El DUI es obligatorio.';
+    if (String(formPaciente.value.dui).length !== 9) return 'El DUI debe tener exactamente 9 números.';
+    if (formPaciente.value.telefono && String(formPaciente.value.telefono).length !== 8) return 'El teléfono debe tener exactamente 8 números.';
+    if (!String(formPaciente.value.password ?? '').trim()) return 'La contraseña es obligatoria.';
+    if (String(formPaciente.value.password).length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (formPaciente.value.password !== formPaciente.value.password_confirmation) return 'La confirmación de contraseña no coincide.';
+
+    return '';
+};
+
+const validarUsuarioAntesDeGuardar = () => {
+    normalizarUsuarioNumeros();
+
+    if (!String(formUsuario.value.nombre ?? '').trim()) return 'El nombre del usuario es obligatorio.';
+    if (!String(formUsuario.value.apellido ?? '').trim()) return 'El apellido del usuario es obligatorio.';
+    if (!String(formUsuario.value.correo ?? '').trim()) return 'El correo electrónico es obligatorio.';
+    if (!esCorreoValido(formUsuario.value.correo)) return 'Ingresa un correo electrónico válido.';
+    if (!String(formUsuario.value.rol ?? '').trim()) return 'Selecciona el rol del usuario.';
+    if (!String(formUsuario.value.password ?? '').trim()) return 'La contraseña es obligatoria.';
+    if (String(formUsuario.value.password).length < 6) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (formUsuario.value.password !== formUsuario.value.password_confirmation) return 'La confirmación de contraseña no coincide.';
+
+    if (formUsuario.value.rol === 'paciente') {
+        if (!String(formUsuario.value.dui ?? '').trim()) return 'El DUI del paciente es obligatorio.';
+        if (String(formUsuario.value.dui).length !== 9) return 'El DUI debe tener exactamente 9 números.';
+        if (formUsuario.value.telefono && String(formUsuario.value.telefono).length !== 8) return 'El teléfono debe tener exactamente 8 números.';
+    }
+
+    return '';
+};
+
+
 const abrirModalUsuario = () => {
     modalUsuarioVisible.value = true;
     modalUsuarioSaving.value  = false;
@@ -831,9 +896,17 @@ const abrirModalUsuario = () => {
 };
 
 const guardarUsuario = async () => {
-    modalUsuarioSaving.value = true;
     modalUsuarioError.value  = '';
     modalUsuarioMensaje.value = '';
+
+    const errorValidacion = validarUsuarioAntesDeGuardar();
+    if (errorValidacion) {
+        modalUsuarioError.value = errorValidacion;
+        return;
+    }
+
+    modalUsuarioSaving.value = true;
+
     try {
         const response = await axios.post('/api/admin/registrar-usuario', formUsuario.value);
         if (response.data?.ok) {
@@ -1457,10 +1530,10 @@ const rolColor = (rol) => ({
                         <span class="h-px flex-1 bg-slate-100"></span>Datos personales<span class="h-px flex-1 bg-slate-100"></span>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Nombres</label>
-                            <input v-model="formPaciente.nombres" type="text" placeholder="Nombres del paciente" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Apellidos</label>
-                            <input v-model="formPaciente.apellidos" type="text" placeholder="Apellidos del paciente" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Nombres <span class="text-red-500">*</span></label>
+                            <input v-model="formPaciente.nombres" type="text" required placeholder="Nombres del paciente" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Apellidos <span class="text-red-500">*</span></label>
+                            <input v-model="formPaciente.apellidos" type="text" required placeholder="Apellidos del paciente" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
                         <div><label class="mb-2 block text-xs font-bold text-slate-700">Fecha de nacimiento</label>
                             <input v-model="formPaciente.fecha_nacimiento" type="date" :max="today" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
                         <div><label class="mb-2 block text-xs font-bold text-slate-700">Género</label>
@@ -1478,12 +1551,12 @@ const rolColor = (rol) => ({
                         <span class="h-px flex-1 bg-slate-100"></span>Contacto<span class="h-px flex-1 bg-slate-100"></span>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div class="md:col-span-2"><label class="mb-2 block text-xs font-bold text-slate-700">Correo electrónico</label>
-                            <input v-model="formPaciente.correo" type="email" placeholder="paciente@correo.com" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">DUI <span class="font-normal text-slate-400">(sin guiones)</span></label>
-                            <input v-model="formPaciente.dui" type="text" placeholder="123456789" maxlength="9" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-mono text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div class="md:col-span-2"><label class="mb-2 block text-xs font-bold text-slate-700">Correo electrónico <span class="text-red-500">*</span></label>
+                            <input v-model="formPaciente.correo" type="email" required placeholder="paciente@correo.com" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">DUI <span class="text-red-500">*</span> <span class="font-normal text-slate-400">(sin guiones)</span></label>
+                            <input v-model="formPaciente.dui" type="text" required inputmode="numeric" pattern="[0-9]*" placeholder="123456789" maxlength="9" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 font-mono text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" @input="formPaciente.dui = soloNumeros(formPaciente.dui, 9)" /></div>
                         <div><label class="mb-2 block text-xs font-bold text-slate-700">Teléfono</label>
-                            <input v-model="formPaciente.telefono" type="text" placeholder="77665544" maxlength="8" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                            <input v-model="formPaciente.telefono" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="77665544" maxlength="8" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" @input="formPaciente.telefono = soloNumeros(formPaciente.telefono, 8)" /></div>
                         <div class="md:col-span-2"><label class="mb-2 block text-xs font-bold text-slate-700">Dirección</label>
                             <input v-model="formPaciente.direccion" type="text" placeholder="Dirección completa" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
                     </div>
@@ -1494,14 +1567,14 @@ const rolColor = (rol) => ({
                         <span class="h-px flex-1 bg-slate-100"></span>Acceso al sistema<span class="h-px flex-1 bg-slate-100"></span>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Contraseña</label>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Contraseña <span class="text-red-500">*</span></label>
                             <div class="relative">
-                                <input v-model="formPaciente.password" :type="showPassPaciente ? 'text' : 'password'" placeholder="Mínimo 8 caracteres" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                                <input v-model="formPaciente.password" :type="showPassPaciente ? 'text' : 'password'" required placeholder="Mínimo 6 caracteres" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
                                 <button type="button" @click="showPassPaciente = !showPassPaciente" class="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-slate-400">
                                     <i :class="`pi ${showPassPaciente ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i></button></div></div>
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Confirmar contraseña</label>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Confirmar contraseña <span class="text-red-500">*</span></label>
                             <div class="relative">
-                                <input v-model="formPaciente.password_confirmation" :type="showPassPacienteConf ? 'text' : 'password'" placeholder="Repite la contraseña" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                                <input v-model="formPaciente.password_confirmation" :type="showPassPacienteConf ? 'text' : 'password'" required placeholder="Repite la contraseña" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
                                 <button type="button" @click="showPassPacienteConf = !showPassPacienteConf" class="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-slate-400">
                                     <i :class="`pi ${showPassPacienteConf ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i></button></div></div>
                     </div>
@@ -1529,14 +1602,14 @@ const rolColor = (rol) => ({
                         <span class="h-px flex-1 bg-slate-100"></span>Datos del usuario<span class="h-px flex-1 bg-slate-100"></span>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Nombre</label>
-                            <input v-model="formUsuario.nombre" type="text" placeholder="Nombre" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Apellido</label>
-                            <input v-model="formUsuario.apellido" type="text" placeholder="Apellido" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
-                        <div class="md:col-span-2"><label class="mb-2 block text-xs font-bold text-slate-700">Correo electrónico</label>
-                            <input v-model="formUsuario.correo" type="email" placeholder="correo@minerva.com" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Nombre <span class="text-red-500">*</span></label>
+                            <input v-model="formUsuario.nombre" type="text" required placeholder="Nombre" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Apellido <span class="text-red-500">*</span></label>
+                            <input v-model="formUsuario.apellido" type="text" required placeholder="Apellido" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
+                        <div class="md:col-span-2"><label class="mb-2 block text-xs font-bold text-slate-700">Correo electrónico <span class="text-red-500">*</span></label>
+                            <input v-model="formUsuario.correo" type="email" required placeholder="correo@minerva.com" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" /></div>
                         <div class="md:col-span-2">
-                            <label class="mb-2 block text-xs font-bold text-slate-700">Rol del usuario</label>
+                            <label class="mb-2 block text-xs font-bold text-slate-700">Rol del usuario <span class="text-red-500">*</span></label>
                             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
                                 <button v-for="r in ['recepcionista','laboratorio','administrador']" :key="r" type="button" @click="formUsuario.rol = r"
                                     class="h-11 rounded-2xl border-2 text-xs font-bold capitalize transition-all"
@@ -1560,14 +1633,14 @@ const rolColor = (rol) => ({
                         <span class="h-px flex-1 bg-slate-100"></span>Contraseña de acceso<span class="h-px flex-1 bg-slate-100"></span>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Contraseña</label>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Contraseña <span class="text-red-500">*</span></label>
                             <div class="relative">
-                                <input v-model="formUsuario.password" :type="showPassUsuario ? 'text' : 'password'" placeholder="Mínimo 8 caracteres" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                                <input v-model="formUsuario.password" :type="showPassUsuario ? 'text' : 'password'" required placeholder="Mínimo 6 caracteres" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
                                 <button type="button" @click="showPassUsuario = !showPassUsuario" class="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-slate-400">
                                     <i :class="`pi ${showPassUsuario ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i></button></div></div>
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Confirmar contraseña</label>
+                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Confirmar contraseña <span class="text-red-500">*</span></label>
                             <div class="relative">
-                                <input v-model="formUsuario.password_confirmation" :type="showPassUsuarioConf ? 'text' : 'password'" placeholder="Repite la contraseña" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                                <input v-model="formUsuario.password_confirmation" :type="showPassUsuarioConf ? 'text' : 'password'" required placeholder="Repite la contraseña" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
                                 <button type="button" @click="showPassUsuarioConf = !showPassUsuarioConf" class="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-slate-400">
                                     <i :class="`pi ${showPassUsuarioConf ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i></button></div></div>
                     </div>
