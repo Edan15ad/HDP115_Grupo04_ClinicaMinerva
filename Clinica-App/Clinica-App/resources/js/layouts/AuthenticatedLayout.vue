@@ -46,13 +46,23 @@ const modules = computed(() => {
     ];
     const filtered = all.filter((m) => m.roles.includes(userRole.value));
     const seen = new Set();
-    return filtered.filter((m) => { if (seen.has(m.key)) return false; seen.add(m.key); return true; });
+    return filtered.filter((m) => {
+        if (seen.has(m.key)) return false;
+        seen.add(m.key);
+        return true;
+    });
 });
 
 const setModule = (item) => {
     sidebarOpen.value = false;
-    if (item.route) { router.visit(item.route); return; }
-    if (page.component === 'Dashboard') { emit('update:activeModule', item.key); return; }
+    if (item.route) {
+        router.visit(item.route);
+        return;
+    }
+    if (page.component === 'Dashboard') {
+        emit('update:activeModule', item.key);
+        return;
+    }
     router.visit(`/dashboard?modulo=${item.key}`);
 };
 
@@ -64,37 +74,169 @@ const perfilLoading  = ref(false);
 const perfilSaving   = ref(false);
 const perfilError    = ref('');
 const perfilMensaje  = ref('');
-const perfil = ref({ usuario_nombre:'', usuario_apellido:'', correo:'', paciente_nombres:'', paciente_apellidos:'', dui:'', fecha_nacimiento:'', telefono:'', direccion:'' });
+const perfil = ref({
+    usuario_nombre: '',
+    usuario_apellido: '',
+    correo: '',
+    paciente_nombres: '',
+    paciente_apellidos: '',
+    dui: '',
+    fecha_nacimiento: '',
+    telefono: '',
+    direccion: '',
+});
+
+const soloNumeros = (valor, max = 99) => {
+    return String(valor ?? '').replace(/\D/g, '').slice(0, max);
+};
+
+const normalizarPerfilNumeros = () => {
+    perfil.value.dui = soloNumeros(perfil.value.dui, 9);
+    perfil.value.telefono = soloNumeros(perfil.value.telefono, 8);
+};
+
+const esCorreoValido = (correo) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(correo ?? '').trim());
+};
+
+
+const traducirErrorBackend = (mensaje) => {
+    const original = String(mensaje ?? '').trim();
+    const texto = original.toLowerCase();
+
+    if (!original) return 'Ocurrió un error al procesar la solicitud.';
+
+    if (texto.includes('the dui has already been taken')) {
+        return 'El DUI ingresado ya está registrado por otro paciente.';
+    }
+
+    if (texto.includes('the correo has already been taken') || texto.includes('the email has already been taken')) {
+        return 'El correo electrónico ingresado ya está registrado.';
+    }
+
+    if (texto.includes('the dui field is required')) {
+        return 'El DUI es obligatorio.';
+    }
+
+    if (texto.includes('the correo field is required') || texto.includes('the email field is required')) {
+        return 'El correo electrónico es obligatorio.';
+    }
+
+    if (texto.includes('the telefono field must not be greater than 8 characters')) {
+        return 'El teléfono no debe tener más de 8 números.';
+    }
+
+    if (texto.includes('the dui field must not be greater than 9 characters')) {
+        return 'El DUI no debe tener más de 9 números.';
+    }
+
+    if (texto.includes('the telefono field format is invalid')) {
+        return 'El teléfono solo debe contener números.';
+    }
+
+    if (texto.includes('the dui field format is invalid')) {
+        return 'El DUI solo debe contener números.';
+    }
+
+    if (texto.includes('the correo field must be a valid email address') || texto.includes('the email field must be a valid email address')) {
+        return 'Ingresa un correo electrónico válido.';
+    }
+
+    if (texto.includes('the password actual field is required')) {
+        return 'La contraseña actual es obligatoria.';
+    }
+
+    if (texto.includes('the password nuevo field is required')) {
+        return 'La nueva contraseña es obligatoria.';
+    }
+
+    if (texto.includes('the password nuevo confirmation field is required')) {
+        return 'La confirmación de la nueva contraseña es obligatoria.';
+    }
+
+    if (texto.includes('the password nuevo field confirmation does not match')) {
+        return 'La confirmación de la nueva contraseña no coincide.';
+    }
+
+    return original;
+};
 
 const abrirPerfil = async () => {
-    perfilVisible.value = true; perfilLoading.value = true;
-    perfilError.value = ''; perfilMensaje.value = '';
+    perfilVisible.value = true;
+    perfilLoading.value = true;
+    perfilError.value = '';
+    perfilMensaje.value = '';
+
     try {
         const { data } = await axios.get('/api/paciente/perfil');
         const d = data?.data;
+
         perfil.value = {
-            usuario_nombre: d?.usuario?.nombre ?? '', usuario_apellido: d?.usuario?.apellido ?? '',
+            usuario_nombre: d?.usuario?.nombre ?? '',
+            usuario_apellido: d?.usuario?.apellido ?? '',
             correo: d?.usuario?.correo ?? '',
-            paciente_nombres: d?.paciente?.nombres ?? '', paciente_apellidos: d?.paciente?.apellidos ?? '',
-            dui: d?.paciente?.dui ?? '', fecha_nacimiento: d?.paciente?.fecha_nacimiento ?? '',
-            telefono: d?.paciente?.telefono ?? '', direccion: d?.paciente?.direccion ?? '',
+            paciente_nombres: d?.paciente?.nombres ?? '',
+            paciente_apellidos: d?.paciente?.apellidos ?? '',
+            dui: soloNumeros(d?.paciente?.dui ?? '', 9),
+            fecha_nacimiento: d?.paciente?.fecha_nacimiento ?? '',
+            telefono: soloNumeros(d?.paciente?.telefono ?? '', 8),
+            direccion: d?.paciente?.direccion ?? '',
         };
-    } catch (e) { perfilError.value = e.response?.data?.mensaje || 'No se pudo cargar el perfil.'; }
-    finally { perfilLoading.value = false; }
+    } catch (e) {
+        perfilError.value = traducirErrorBackend(e.response?.data?.mensaje || 'No se pudo cargar el perfil.');
+    } finally {
+        perfilLoading.value = false;
+    }
 };
 
 const guardarPerfil = async () => {
-    perfilSaving.value = true; perfilError.value = ''; perfilMensaje.value = '';
+    perfilError.value = '';
+    perfilMensaje.value = '';
+
+    normalizarPerfilNumeros();
+
+    if (!String(perfil.value.correo ?? '').trim()) {
+        perfilError.value = 'El correo electrónico es obligatorio.';
+        return;
+    }
+
+    if (!esCorreoValido(perfil.value.correo)) {
+        perfilError.value = 'Ingresa un correo electrónico válido.';
+        return;
+    }
+
+    if (!String(perfil.value.dui ?? '').trim()) {
+        perfilError.value = 'El DUI es obligatorio.';
+        return;
+    }
+
+    if (String(perfil.value.dui).length !== 9) {
+        perfilError.value = 'El DUI debe tener exactamente 9 números.';
+        return;
+    }
+
+    if (perfil.value.telefono && String(perfil.value.telefono).length !== 8) {
+        perfilError.value = 'El teléfono debe tener exactamente 8 números.';
+        return;
+    }
+
+    perfilSaving.value = true;
+
     try {
         const { data } = await axios.put('/api/paciente/perfil', {
-            correo: perfil.value.correo, dui: perfil.value.dui,
-            telefono: perfil.value.telefono, direccion: perfil.value.direccion,
+            correo: String(perfil.value.correo ?? '').trim(),
+            dui: perfil.value.dui,
+            telefono: perfil.value.telefono,
+            direccion: perfil.value.direccion,
         });
-        perfilMensaje.value = data?.mensaje || 'Perfil actualizado.';
+
+        perfilMensaje.value = data?.mensaje || 'Perfil actualizado correctamente.';
     } catch (e) {
         const firstErr = e.response?.data?.errors ? Object.values(e.response.data.errors)[0]?.[0] : null;
-        perfilError.value = firstErr || e.response?.data?.mensaje || 'Error al actualizar.';
-    } finally { perfilSaving.value = false; }
+        perfilError.value = traducirErrorBackend(firstErr || e.response?.data?.mensaje || 'Error al actualizar.');
+    } finally {
+        perfilSaving.value = false;
+    }
 };
 
 // ─── Modal: cambiar contraseña ────────────────────────────────────────────────
@@ -102,21 +244,24 @@ const passVisible  = ref(false);
 const passSaving   = ref(false);
 const passError    = ref('');
 const passMensaje  = ref('');
-const passForm = ref({ password_actual:'', password_nuevo:'', password_nuevo_confirmation:'' });
+const passForm = ref({ password_actual: '', password_nuevo: '', password_nuevo_confirmation: '' });
 const showPass = ref({ actual: false, nuevo: false, confirm: false });
 
 const abrirCambiarPassword = () => {
-    passVisible.value = true; passSaving.value = false;
-    passError.value = ''; passMensaje.value = '';
-    passForm.value = { password_actual:'', password_nuevo:'', password_nuevo_confirmation:'' };
+    passVisible.value = true;
+    passSaving.value = false;
+    passError.value = '';
+    passMensaje.value = '';
+    passForm.value = { password_actual: '', password_nuevo: '', password_nuevo_confirmation: '' };
     showPass.value = { actual: false, nuevo: false, confirm: false };
 };
 
 const passwordStrength = computed(() => {
     const p = passForm.value.password_nuevo;
     if (!p) return 0;
+
     let score = 0;
-    if (p.length >= 8)  score++;
+    if (p.length >= 8) score++;
     if (/[a-z]/.test(p)) score++;
     if (/[A-Z]/.test(p)) score++;
     if (/[0-9]/.test(p)) score++;
@@ -124,26 +269,38 @@ const passwordStrength = computed(() => {
     return score;
 });
 
-const passwordStrengthLabel = computed(() => ['','Muy débil','Débil','Regular','Fuerte','Muy fuerte'][passwordStrength.value] ?? '');
-const passwordStrengthColor = computed(() => ['','#ef4444','#f97316','#eab308','#22c55e','#10b981'][passwordStrength.value] ?? '#e2e8f0');
+const passwordStrengthLabel = computed(() => ['', 'Muy débil', 'Débil', 'Regular', 'Fuerte', 'Muy fuerte'][passwordStrength.value] ?? '');
+const passwordStrengthColor = computed(() => ['', '#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981'][passwordStrength.value] ?? '#e2e8f0');
 
 const guardarPassword = async () => {
-    passSaving.value = true; passError.value = ''; passMensaje.value = '';
+    passSaving.value = true;
+    passError.value = '';
+    passMensaje.value = '';
+
     try {
         const { data } = await axios.put('/api/usuario/cambiar-password', passForm.value);
         passMensaje.value = data?.mensaje || 'Contraseña actualizada correctamente.';
-        passForm.value = { password_actual:'', password_nuevo:'', password_nuevo_confirmation:'' };
-        setTimeout(() => { passVisible.value = false; passMensaje.value = ''; }, 2000);
+        passForm.value = { password_actual: '', password_nuevo: '', password_nuevo_confirmation: '' };
+        setTimeout(() => {
+            passVisible.value = false;
+            passMensaje.value = '';
+        }, 2000);
     } catch (e) {
         const firstErr = e.response?.data?.errors ? Object.values(e.response.data.errors)[0]?.[0] : null;
-        passError.value = firstErr || e.response?.data?.mensaje || 'No se pudo cambiar la contraseña.';
-    } finally { passSaving.value = false; }
+        passError.value = traducirErrorBackend(firstErr || e.response?.data?.mensaje || 'No se pudo cambiar la contraseña.');
+    } finally {
+        passSaving.value = false;
+    }
 };
 
 // ─── Menú de usuario (dropdown) ──────────────────────────────────────────────
 const userMenuOpen = ref(false);
-const toggleUserMenu = () => { userMenuOpen.value = !userMenuOpen.value; };
-const closeUserMenu  = () => { userMenuOpen.value = false; };
+const toggleUserMenu = () => {
+    userMenuOpen.value = !userMenuOpen.value;
+};
+const closeUserMenu = () => {
+    userMenuOpen.value = false;
+};
 
 const initials = computed(() => {
     const n = userName.value.trim().split(' ');
@@ -153,7 +310,6 @@ const initials = computed(() => {
 
 <template>
     <div class="min-h-screen" style="background: #f1f5f9; font-family: 'DM Sans', 'Segoe UI', sans-serif;">
-
         <!-- ══════════════════ HEADER ══════════════════ -->
         <header style="
             position: fixed; top: 0; left: 0; right: 0; z-index: 50;
@@ -164,7 +320,6 @@ const initials = computed(() => {
             box-shadow: 0 1px 20px rgba(0,0,0,0.06);
         ">
             <div style="display:flex; align-items:center; justify-content:space-between; height:100%; padding: 0 20px;">
-
                 <!-- Logo + Hamburguesa -->
                 <div style="display:flex; align-items:center; gap:12px;">
                     <button
@@ -193,7 +348,6 @@ const initials = computed(() => {
 
                 <!-- Derecha: badge rol + menú usuario -->
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <!-- Badge rol -->
                     <div class="sm-show" :style="`
                         padding: 4px 12px; border-radius:20px; font-size:11px; font-weight:700;
                         background: ${roleColor.light}; color: ${roleColor.text};
@@ -203,7 +357,6 @@ const initials = computed(() => {
                         {{ userRoleLabel }}
                     </div>
 
-                    <!-- Avatar / menú usuario -->
                     <div style="position:relative;" v-click-outside="closeUserMenu">
                         <button
                             @click="toggleUserMenu"
@@ -229,7 +382,6 @@ const initials = computed(() => {
                             <i class="pi pi-chevron-down sm-show" style="font-size:10px; color:#94a3b8;"></i>
                         </button>
 
-                        <!-- Dropdown menú -->
                         <div
                             v-if="userMenuOpen"
                             style="
@@ -239,7 +391,6 @@ const initials = computed(() => {
                                 overflow:hidden; z-index:100;
                             "
                         >
-                            <!-- Header dropdown -->
                             <div :style="`padding:16px; background: linear-gradient(135deg, ${roleColor.bg}15, ${roleColor.light}); border-bottom:1px solid #f1f5f9;`">
                                 <div style="font-size:13px; font-weight:800; color:#0f172a;">{{ userName }}</div>
                                 <div style="font-size:11px; color:#64748b; margin-top:2px;">{{ userEmail }}</div>
@@ -250,9 +401,7 @@ const initials = computed(() => {
                                 `">{{ userRoleLabel }}</div>
                             </div>
 
-                            <!-- Opciones -->
                             <div style="padding:8px;">
-                                <!-- Editar perfil: solo paciente -->
                                 <button
                                     v-if="userRole === 'paciente'"
                                     @click="closeUserMenu(); abrirPerfil();"
@@ -266,7 +415,6 @@ const initials = computed(() => {
                                     Editar perfil
                                 </button>
 
-                                <!-- Cambiar contraseña: todos los roles -->
                                 <button
                                     @click="closeUserMenu(); abrirCambiarPassword();"
                                     style="width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:none; background:transparent; cursor:pointer; font-size:13px; font-weight:600; color:#374151; text-align:left; transition:background 0.15s;"
@@ -281,7 +429,6 @@ const initials = computed(() => {
 
                                 <div style="height:1px; background:#f1f5f9; margin:6px 0;"></div>
 
-                                <!-- Cerrar sesión -->
                                 <button
                                     @click="closeUserMenu(); logout();"
                                     style="width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:none; background:transparent; cursor:pointer; font-size:13px; font-weight:600; color:#ef4444; text-align:left; transition:background 0.15s;"
@@ -318,13 +465,10 @@ const initials = computed(() => {
             transform: ${sidebarOpen ? 'translateX(0)' : 'translateX(-100%)'};
             box-shadow: 4px 0 24px rgba(0,0,0,0.06);
         `" class="lg-visible">
-
-            <!-- Cabecera sidebar -->
             <div style="padding: 20px 16px 12px;">
                 <div style="font-size:10px; font-weight:800; letter-spacing:0.15em; text-transform:uppercase; color:#94a3b8;">Navegación</div>
             </div>
 
-            <!-- Navegación -->
             <nav style="flex:1; overflow-y:auto; padding:0 10px 16px;">
                 <button
                     v-for="item in modules"
@@ -352,7 +496,6 @@ const initials = computed(() => {
                 </button>
             </nav>
 
-            <!-- Footer sidebar -->
             <div style="padding:12px 10px;">
                 <div :style="`
                     padding:14px 16px; border-radius:14px;
@@ -396,7 +539,6 @@ const initials = computed(() => {
                 </div>
             </div>
             <div v-else style="padding:4px 0;">
-                <!-- Avisos -->
                 <div v-if="perfilMensaje" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
                     <i class="pi pi-check-circle"></i> {{ perfilMensaje }}
                 </div>
@@ -404,7 +546,6 @@ const initials = computed(() => {
                     <i class="pi pi-exclamation-triangle"></i> {{ perfilError }}
                 </div>
 
-                <!-- Sección info fija -->
                 <div style="margin-bottom:16px; padding:14px 16px; border-radius:14px; background:#f8fafc; border:1px solid #e2e8f0;">
                     <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8; margin-bottom:10px;">Información personal</div>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -419,28 +560,58 @@ const initials = computed(() => {
                     </div>
                 </div>
 
-                <!-- Sección editable -->
                 <div style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em; color:#94a3b8; margin-bottom:10px;">Datos editables</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
                     <div>
-                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Correo electrónico</label>
-                        <input v-model="perfil.correo" type="email" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Correo electrónico <span style="color:#ef4444;">*</span></label>
+                        <input
+                            v-model="perfil.correo"
+                            type="email"
+                            style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
+                        />
                     </div>
                     <div>
-                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">DUI</label>
-                        <input v-model="perfil.dui" maxlength="9" placeholder="000000000" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                        <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">DUI <span style="color:#ef4444;">*</span></label>
+                        <input
+                            v-model="perfil.dui"
+                            type="text"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            maxlength="9"
+                            placeholder="000000000"
+                            style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
+                            @input="perfil.dui = soloNumeros(perfil.dui, 9)"
+                        />
                     </div>
                     <div>
                         <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Teléfono</label>
-                        <input v-model="perfil.telefono" maxlength="8" placeholder="00000000" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                        <input
+                            v-model="perfil.telefono"
+                            type="text"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            maxlength="8"
+                            placeholder="00000000"
+                            style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
+                            @input="perfil.telefono = soloNumeros(perfil.telefono, 8)"
+                        />
                     </div>
                     <div>
                         <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Dirección</label>
-                        <input v-model="perfil.direccion" maxlength="150" placeholder="Tu dirección" style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'" />
+                        <input
+                            v-model="perfil.direccion"
+                            maxlength="150"
+                            placeholder="Tu dirección"
+                            style="width:100%; height:42px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 12px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
+                        />
                     </div>
                 </div>
 
@@ -459,16 +630,13 @@ const initials = computed(() => {
             :style="{ width: 'min(460px, 95vw)', borderRadius: '20px' }"
         >
             <div style="padding:4px 0;">
-                <!-- Aviso éxito -->
                 <div v-if="passMensaje" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
                     <i class="pi pi-check-circle"></i> {{ passMensaje }}
                 </div>
-                <!-- Aviso error -->
                 <div v-if="passError" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#fff5f5; border:1px solid #fecaca; color:#991b1b; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
                     <i class="pi pi-exclamation-triangle"></i> {{ passError }}
                 </div>
 
-                <!-- Info de seguridad -->
                 <div style="margin-bottom:18px; padding:12px 14px; border-radius:12px; background:#f0f9ff; border:1px solid #bae6fd;">
                     <div style="font-size:12px; font-weight:700; color:#0369a1; display:flex; align-items:center; gap:6px;">
                         <i class="pi pi-info-circle"></i> Requisitos de la nueva contraseña
@@ -478,7 +646,6 @@ const initials = computed(() => {
                     </div>
                 </div>
 
-                <!-- Campo: contraseña actual -->
                 <div style="margin-bottom:14px;">
                     <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Contraseña actual</label>
                     <div style="position:relative;">
@@ -487,19 +654,15 @@ const initials = computed(() => {
                             :type="showPass.actual ? 'text' : 'password'"
                             placeholder="Tu contraseña actual"
                             style="width:100%; height:44px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 44px 0 14px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
                         />
-                        <button
-                            type="button"
-                            @click="showPass.actual = !showPass.actual"
-                            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;"
-                        >
+                        <button type="button" @click="showPass.actual = !showPass.actual" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;">
                             <i :class="`pi ${showPass.actual ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Campo: nueva contraseña -->
                 <div style="margin-bottom:8px;">
                     <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Nueva contraseña</label>
                     <div style="position:relative;">
@@ -508,19 +671,15 @@ const initials = computed(() => {
                             :type="showPass.nuevo ? 'text' : 'password'"
                             placeholder="Nueva contraseña"
                             style="width:100%; height:44px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 44px 0 14px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
                         />
-                        <button
-                            type="button"
-                            @click="showPass.nuevo = !showPass.nuevo"
-                            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;"
-                        >
+                        <button type="button" @click="showPass.nuevo = !showPass.nuevo" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;">
                             <i :class="`pi ${showPass.nuevo ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Barra de fuerza -->
                 <div v-if="passForm.password_nuevo" style="margin-bottom:14px;">
                     <div style="display:flex; gap:4px; margin-bottom:4px;">
                         <div v-for="i in 5" :key="i" :style="`height:4px; flex:1; border-radius:4px; background: ${i <= passwordStrength ? passwordStrengthColor : '#e2e8f0'}; transition:background 0.3s;`"></div>
@@ -530,7 +689,6 @@ const initials = computed(() => {
                     </div>
                 </div>
 
-                <!-- Campo: confirmar nueva contraseña -->
                 <div style="margin-bottom:20px;">
                     <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">Confirmar nueva contraseña</label>
                     <div style="position:relative;">
@@ -539,17 +697,13 @@ const initials = computed(() => {
                             :type="showPass.confirm ? 'text' : 'password'"
                             placeholder="Repite la nueva contraseña"
                             style="width:100%; height:44px; border-radius:10px; border:1.5px solid #e2e8f0; background:white; padding:0 44px 0 14px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box; transition:border 0.2s;"
-                            onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#e2e8f0'"
+                            onfocus="this.style.borderColor='#0891b2'"
+                            onblur="this.style.borderColor='#e2e8f0'"
                         />
-                        <button
-                            type="button"
-                            @click="showPass.confirm = !showPass.confirm"
-                            style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;"
-                        >
+                        <button type="button" @click="showPass.confirm = !showPass.confirm" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); border:none; background:transparent; cursor:pointer; color:#94a3b8; padding:0;">
                             <i :class="`pi ${showPass.confirm ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i>
                         </button>
                     </div>
-                    <!-- Indicador de coincidencia -->
                     <div
                         v-if="passForm.password_nuevo_confirmation && passForm.password_nuevo"
                         style="margin-top:5px; font-size:11px; font-weight:700; display:flex; align-items:center; gap:4px;"
@@ -573,7 +727,6 @@ const initials = computed(() => {
                 </div>
             </div>
         </Dialog>
-
     </div>
 </template>
 
