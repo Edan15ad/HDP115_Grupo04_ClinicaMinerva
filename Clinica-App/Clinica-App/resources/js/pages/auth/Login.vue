@@ -9,9 +9,55 @@ const form = useForm({
 });
 
 const showPassword = ref(false);
+const loginError = ref('');
+
+const traducirErrorLogin = (mensaje) => {
+    const texto = String(mensaje ?? '').toLowerCase();
+
+    if (
+        texto.includes('too many requests') ||
+        texto.includes('too many attempts') ||
+        texto.includes('429') ||
+        texto.includes('throttle') ||
+        texto.includes('demasiados intentos')
+    ) {
+        return 'Demasiados intentos fallidos, espere 1 minuto antes de volver a intentarlo.';
+    }
+
+    if (
+        texto.includes('these credentials do not match') ||
+        texto.includes('credentials') ||
+        texto.includes('credenciales')
+    ) {
+        return 'El correo o la contraseña son incorrectos.';
+    }
+
+    if (texto.includes('correo field is required') || texto.includes('email field is required')) {
+        return 'El correo electrónico es obligatorio.';
+    }
+
+    if (texto.includes('password field is required')) {
+        return 'La contraseña es obligatoria.';
+    }
+
+    return mensaje || 'No se pudo iniciar sesión. Intenta nuevamente.';
+};
 
 const submit = () => {
+    loginError.value = '';
+    form.clearErrors();
+
     form.post('/login', {
+        preserveScroll: true,
+        onError: (errors) => {
+            loginError.value = traducirErrorLogin(
+                errors.correo ||
+                errors.email ||
+                errors.password ||
+                errors.message ||
+                errors.error
+            );
+        },
         onFinish: () => form.reset('password'),
     });
 };
@@ -43,10 +89,10 @@ const submit = () => {
             </div>
 
             <!-- Error -->
-            <div v-if="form.errors.correo || form.errors.password"
+            <div v-if="loginError || form.errors.correo || form.errors.password || form.errors.email"
                 style="margin-bottom:18px; padding:12px 14px; border-radius:12px; background:#fff5f5; border:1px solid #fecaca; color:#dc2626; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
                 <i class="pi pi-exclamation-circle"></i>
-                {{ form.errors.correo || form.errors.password }}
+                {{ loginError || traducirErrorLogin(form.errors.correo || form.errors.email || form.errors.password) }}
             </div>
 
             <form @submit.prevent="submit" style="display:flex; flex-direction:column; gap:16px;">
@@ -59,6 +105,7 @@ const submit = () => {
                         type="email"
                         placeholder="tucorreo@dominio.com"
                         autocomplete="username"
+                        required
                         style="width:100%; height:46px; border-radius:12px; border:1.5px solid #e2e8f0; background:white; color:#0f172a; padding:0 16px; font-size:14px; font-weight:600; outline:none; box-sizing:border-box; transition:border 0.2s, box-shadow 0.2s;"
                         onfocus="this.style.borderColor='#0891b2'; this.style.boxShadow='0 0 0 3px rgba(8,145,178,0.1)'"
                         onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'"
@@ -74,6 +121,7 @@ const submit = () => {
                             :type="showPassword ? 'text' : 'password'"
                             placeholder="••••••••"
                             autocomplete="current-password"
+                            required
                             style="width:100%; height:46px; border-radius:12px; border:1.5px solid #e2e8f0; background:white; color:#0f172a; padding:0 50px 0 16px; font-size:14px; font-weight:600; outline:none; box-sizing:border-box; transition:border 0.2s, box-shadow 0.2s;"
                             onfocus="this.style.borderColor='#0891b2'; this.style.boxShadow='0 0 0 3px rgba(8,145,178,0.1)'"
                             onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none'"

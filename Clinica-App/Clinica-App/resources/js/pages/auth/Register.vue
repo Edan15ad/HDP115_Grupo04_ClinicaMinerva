@@ -41,8 +41,145 @@ const passwordsMatch = computed(() =>
         : null
 );
 
+const soloNumeros = (valor, max = 99) => {
+    return String(valor ?? '').replace(/\D/g, '').slice(0, max);
+};
+
+const esCorreoValido = (correo) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(correo ?? '').trim());
+};
+
+const normalizarNumeros = () => {
+    form.dui = soloNumeros(form.dui, 9);
+    form.telefono = soloNumeros(form.telefono, 8);
+};
+
+const traducirErrorBackend = (mensaje) => {
+    const texto = String(mensaje ?? '').toLowerCase();
+
+    if (texto.includes('the correo has already been taken') || texto.includes('the email has already been taken')) {
+        return 'El correo electrónico ingresado ya está registrado.';
+    }
+
+    if (texto.includes('the dui has already been taken')) {
+        return 'El DUI ingresado ya está registrado.';
+    }
+
+    if (texto.includes('the nombres field is required')) return 'El campo nombres es obligatorio.';
+    if (texto.includes('the apellidos field is required')) return 'El campo apellidos es obligatorio.';
+    if (texto.includes('the correo field is required') || texto.includes('the email field is required')) return 'El correo electrónico es obligatorio.';
+    if (texto.includes('the dui field is required')) return 'El DUI es obligatorio.';
+    if (texto.includes('the telefono field is required')) return 'El teléfono es obligatorio.';
+    if (texto.includes('the fecha nacimiento field is required') || texto.includes('the fecha_nacimiento field is required')) return 'La fecha de nacimiento es obligatoria.';
+    if (texto.includes('the genero field is required')) return 'El género es obligatorio.';
+    if (texto.includes('the direccion field is required')) return 'La dirección es obligatoria.';
+    if (texto.includes('the password field is required')) return 'La contraseña es obligatoria.';
+    if (texto.includes('the password confirmation field is required') || texto.includes('password confirmation')) return 'La confirmación de contraseña es obligatoria.';
+    if (texto.includes('the password confirmation does not match')) return 'Las contraseñas no coinciden.';
+    if (texto.includes('must be a valid email')) return 'Ingresa un correo electrónico válido.';
+
+    return mensaje || 'Ocurrió un error al procesar el registro.';
+};
+
+const traducirErroresFormulario = () => {
+    Object.entries(form.errors).forEach(([campo, mensaje]) => {
+        form.setError(campo, traducirErrorBackend(mensaje));
+    });
+};
+
+const validarRegistroAntesDeEnviar = () => {
+    normalizarNumeros();
+    form.clearErrors();
+
+    if (!String(form.nombres ?? '').trim()) {
+        form.setError('nombres', 'El campo nombres es obligatorio.');
+        return false;
+    }
+
+    if (!String(form.apellidos ?? '').trim()) {
+        form.setError('apellidos', 'El campo apellidos es obligatorio.');
+        return false;
+    }
+
+    if (!String(form.fecha_nacimiento ?? '').trim()) {
+        form.setError('fecha_nacimiento', 'La fecha de nacimiento es obligatoria.');
+        return false;
+    }
+
+    if (form.fecha_nacimiento > today) {
+        form.setError('fecha_nacimiento', 'La fecha de nacimiento no puede ser mayor a la fecha actual.');
+        return false;
+    }
+
+    if (!String(form.genero ?? '').trim()) {
+        form.setError('genero', 'El género es obligatorio.');
+        return false;
+    }
+
+    if (!String(form.correo ?? '').trim()) {
+        form.setError('correo', 'El correo electrónico es obligatorio.');
+        return false;
+    }
+
+    if (!esCorreoValido(form.correo)) {
+        form.setError('correo', 'Ingresa un correo electrónico válido.');
+        return false;
+    }
+
+    if (!String(form.dui ?? '').trim()) {
+        form.setError('dui', 'El DUI es obligatorio.');
+        return false;
+    }
+
+    if (String(form.dui).length !== 9) {
+        form.setError('dui', 'El DUI debe tener exactamente 9 números.');
+        return false;
+    }
+
+    if (!String(form.telefono ?? '').trim()) {
+        form.setError('telefono', 'El teléfono es obligatorio.');
+        return false;
+    }
+
+    if (String(form.telefono).length !== 8) {
+        form.setError('telefono', 'El teléfono debe tener exactamente 8 números.');
+        return false;
+    }
+
+    if (!String(form.direccion ?? '').trim()) {
+        form.setError('direccion', 'La dirección es obligatoria.');
+        return false;
+    }
+
+    if (!String(form.password ?? '').trim()) {
+        form.setError('password', 'La contraseña es obligatoria.');
+        return false;
+    }
+
+    if (String(form.password).length < 8) {
+        form.setError('password', 'La contraseña debe tener al menos 8 caracteres.');
+        return false;
+    }
+
+    if (!String(form.password_confirmation ?? '').trim()) {
+        form.setError('password_confirmation', 'La confirmación de contraseña es obligatoria.');
+        return false;
+    }
+
+    if (form.password !== form.password_confirmation) {
+        form.setError('password_confirmation', 'Las contraseñas no coinciden.');
+        return false;
+    }
+
+    return true;
+};
+
 const submit = () => {
+    if (!validarRegistroAntesDeEnviar()) return;
+
     form.post('/register', {
+        preserveScroll: true,
+        onError: () => traducirErroresFormulario(),
         onFinish: () => form.reset('password', 'password_confirmation'),
     });
 };
@@ -106,8 +243,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                             <!-- Nombres -->
                             <div>
-                                <label :style="labelStyle">Nombres</label>
-                                <input v-model="form.nombres" type="text" placeholder="Tus nombres"
+                                <label :style="labelStyle">Nombres <span style="color:#dc2626;">*</span></label>
+                                <input v-model.trim="form.nombres" type="text" required autocomplete="given-name" placeholder="Tus nombres"
                                     :style="inputStyle + (form.errors.nombres ? 'border-color:#fca5a5;' : '')"
                                     :onfocus="inputFocus" :onblur="inputBlur" />
                                 <small v-if="form.errors.nombres" :style="errorStyle">{{ form.errors.nombres }}</small>
@@ -115,8 +252,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
 
                             <!-- Apellidos -->
                             <div>
-                                <label :style="labelStyle">Apellidos</label>
-                                <input v-model="form.apellidos" type="text" placeholder="Tus apellidos"
+                                <label :style="labelStyle">Apellidos <span style="color:#dc2626;">*</span></label>
+                                <input v-model.trim="form.apellidos" type="text" required autocomplete="family-name" placeholder="Tus apellidos"
                                     :style="inputStyle + (form.errors.apellidos ? 'border-color:#fca5a5;' : '')"
                                     :onfocus="inputFocus" :onblur="inputBlur" />
                                 <small v-if="form.errors.apellidos" :style="errorStyle">{{ form.errors.apellidos }}</small>
@@ -124,10 +261,11 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
 
                             <!-- Fecha nacimiento -->
                             <div>
-                                <label :style="labelStyle">Fecha de nacimiento</label>
+                                <label :style="labelStyle">Fecha de nacimiento <span style="color:#dc2626;">*</span></label>
                                 <input
                                     v-model="form.fecha_nacimiento"
                                     type="date"
+                                    required
                                     :max="today"
                                     :style="inputStyle + (form.errors.fecha_nacimiento ? 'border-color:#fca5a5;' : '')"
                                     :onfocus="inputFocus"
@@ -140,8 +278,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
 
                             <!-- Género -->
                             <div>
-                                <label :style="labelStyle">Género</label>
-                                <select v-model="form.genero"
+                                <label :style="labelStyle">Género <span style="color:#dc2626;">*</span></label>
+                                <select v-model="form.genero" required
                                     :style="inputStyle + (form.errors.genero ? 'border-color:#fca5a5;' : '')"
                                     :onfocus="inputFocus" :onblur="inputBlur">
                                     <option value="" disabled>Selecciona tu género</option>
@@ -165,8 +303,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                         <div style="display:flex; flex-direction:column; gap:14px;">
                             <!-- Correo -->
                             <div>
-                                <label :style="labelStyle">Correo electrónico</label>
-                                <input v-model="form.correo" type="email" placeholder="ejemplo@minerva.com"
+                                <label :style="labelStyle">Correo electrónico <span style="color:#dc2626;">*</span></label>
+                                <input v-model.trim="form.correo" type="email" required autocomplete="email" placeholder="ejemplo@minerva.com"
                                     :style="inputStyle + (form.errors.correo ? 'border-color:#fca5a5;' : '')"
                                     :onfocus="inputFocus" :onblur="inputBlur" />
                                 <small v-if="form.errors.correo" :style="errorStyle">{{ form.errors.correo }}</small>
@@ -175,8 +313,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                             <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                                 <!-- DUI -->
                                 <div>
-                                    <label :style="labelStyle">DUI <span style="color:#94a3b8; font-weight:500;">(sin guiones)</span></label>
-                                    <input v-model="form.dui" type="text" placeholder="123456789" maxlength="9"
+                                    <label :style="labelStyle">DUI <span style="color:#dc2626;">*</span> <span style="color:#94a3b8; font-weight:500;">(solo números, sin guiones)</span></label>
+                                    <input v-model="form.dui" type="text" required inputmode="numeric" pattern="[0-9]*" placeholder="123456789" maxlength="9" @input="form.dui = soloNumeros(form.dui, 9)"
                                         :style="inputStyle + 'font-family:monospace; letter-spacing:0.05em;' + (form.errors.dui ? 'border-color:#fca5a5;' : '')"
                                         :onfocus="inputFocus" :onblur="inputBlur" />
                                     <small v-if="form.errors.dui" :style="errorStyle">{{ form.errors.dui }}</small>
@@ -184,8 +322,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
 
                                 <!-- Teléfono -->
                                 <div>
-                                    <label :style="labelStyle">Teléfono</label>
-                                    <input v-model="form.telefono" type="text" placeholder="77665544" maxlength="8"
+                                    <label :style="labelStyle">Teléfono <span style="color:#dc2626;">*</span></label>
+                                    <input v-model="form.telefono" type="text" required inputmode="numeric" pattern="[0-9]*" placeholder="77665544" maxlength="8" @input="form.telefono = soloNumeros(form.telefono, 8)"
                                         :style="inputStyle + (form.errors.telefono ? 'border-color:#fca5a5;' : '')"
                                         :onfocus="inputFocus" :onblur="inputBlur" />
                                     <small v-if="form.errors.telefono" :style="errorStyle">{{ form.errors.telefono }}</small>
@@ -194,8 +332,8 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
 
                             <!-- Dirección -->
                             <div>
-                                <label :style="labelStyle">Dirección</label>
-                                <input v-model="form.direccion" type="text" placeholder="Tu dirección completa"
+                                <label :style="labelStyle">Dirección <span style="color:#dc2626;">*</span></label>
+                                <input v-model.trim="form.direccion" type="text" required placeholder="Tu dirección completa"
                                     :style="inputStyle + (form.errors.direccion ? 'border-color:#fca5a5;' : '')"
                                     :onfocus="inputFocus" :onblur="inputBlur" />
                                 <small v-if="form.errors.direccion" :style="errorStyle">{{ form.errors.direccion }}</small>
@@ -214,10 +352,13 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
                             <!-- Contraseña -->
                             <div>
-                                <label :style="labelStyle">Contraseña</label>
+                                <label :style="labelStyle">Contraseña <span style="color:#dc2626;">*</span></label>
                                 <div style="position:relative;">
                                     <input v-model="form.password"
                                         :type="showPass ? 'text' : 'password'"
+                                        required
+                                        minlength="8"
+                                        autocomplete="new-password"
                                         placeholder="Mínimo 8 caracteres"
                                         :style="inputStyle + 'padding-right:44px;' + (form.errors.password ? 'border-color:#fca5a5;' : '')"
                                         :onfocus="inputFocus" :onblur="inputBlur" />
@@ -241,10 +382,13 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
 
                             <!-- Confirmar contraseña -->
                             <div>
-                                <label :style="labelStyle">Confirmar contraseña</label>
+                                <label :style="labelStyle">Confirmar contraseña <span style="color:#dc2626;">*</span></label>
                                 <div style="position:relative;">
                                     <input v-model="form.password_confirmation"
                                         :type="showConfirm ? 'text' : 'password'"
+                                        required
+                                        minlength="8"
+                                        autocomplete="new-password"
                                         placeholder="Repite la contraseña"
                                         :style="inputStyle + 'padding-right:44px;'"
                                         :onfocus="inputFocus" :onblur="inputBlur" />
@@ -261,6 +405,7 @@ const errorStyle = 'display:block; margin-top:5px; font-size:11px; font-weight:7
                                     <i :class="`pi ${passwordsMatch ? 'pi-check-circle' : 'pi-times-circle'}`"></i>
                                     {{ passwordsMatch ? 'Las contraseñas coinciden' : 'No coinciden' }}
                                 </div>
+                                <small v-if="form.errors.password_confirmation" :style="errorStyle">{{ form.errors.password_confirmation }}</small>
                             </div>
                         </div>
                     </div>
