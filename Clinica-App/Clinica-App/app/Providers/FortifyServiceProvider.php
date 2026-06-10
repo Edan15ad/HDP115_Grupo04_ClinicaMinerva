@@ -69,15 +69,12 @@ class FortifyServiceProvider extends ServiceProvider
                 'password' => ['required', 'string'],
             ]);
 
-            // Buscar el usuario sin filtrar por estado
             $usuario = Usuario::where('correo', $request->correo)->first();
 
-            // No existe o contraseña incorrecta
             if (!$usuario || !Hash::check($request->password, $usuario->password)) {
-                return null; // Fortify lanza el error genérico de credenciales
+                return null;
             }
 
-            // Existe y contraseña correcta pero está INACTIVO
             if ($usuario->estado === 'inactivo') {
                 throw ValidationException::withMessages([
                     'correo' => 'Tu cuenta está inactiva. Por favor contacta al soporte de Clínica Minerva para activarla.',
@@ -92,9 +89,15 @@ class FortifyServiceProvider extends ServiceProvider
     {
         RateLimiter::for('login', function (Request $request) {
             $correo = (string) $request->input('correo');
-            return Limit::perMinute(5)->by(
-                Str::transliterate(Str::lower($correo) . '|' . $request->ip())
-            );
+
+            return Limit::perMinute(10)
+                ->by(Str::transliterate(Str::lower($correo) . '|' . $request->ip()))
+                ->response(function (Request $request) {
+
+                    throw ValidationException::withMessages([
+                        'correo' => 'Demasiados intentos fallidos. Espera 1 minuto antes de intentarlo nuevamente.',
+                    ]);
+                });
         });
 
         RateLimiter::for('two-factor', function (Request $request) {
