@@ -9,8 +9,9 @@ use App\Http\Controllers\Api\LaboratorioResultadoController;
 use App\Http\Controllers\Api\PacienteResultadoController;
 use App\Http\Controllers\Api\EnvioCorreoController;
 use App\Http\Controllers\Api\CambiarPasswordController;
-use App\Http\Controllers\Api\RecepcionRegistroPacienteController;  
-use App\Http\Controllers\Api\AdminRegistroUsuarioController;        
+use App\Http\Controllers\Api\RecepcionRegistroPacienteController;
+use App\Http\Controllers\Api\AdminRegistroUsuarioController;
+use App\Http\Controllers\Api\UsuarioController; 
 
 // Pantalla de Bienvenida
 Route::get('/', function () {
@@ -36,19 +37,14 @@ Route::middleware(['auth'])->group(function () {
     // API paciente
     Route::get('/api/paciente/mis-examenes', [PacienteExamenController::class, 'misExamenes'])
         ->name('api.paciente.mis-examenes');
-
     Route::get('/api/paciente/examenes-disponibles', [PacienteExamenController::class, 'examenesDisponibles'])
         ->name('api.paciente.examenes-disponibles');
-
     Route::get('/api/paciente/horarios-disponibles', [PacienteExamenController::class, 'horariosDisponibles'])
         ->name('api.paciente.horarios-disponibles');
-
     Route::post('/api/paciente/solicitar-examen', [PacienteExamenController::class, 'solicitarExamen'])
         ->name('api.paciente.solicitar-examen');
-
     Route::get('/api/paciente/perfil', [PacientePerfilController::class, 'show'])
         ->name('api.paciente.perfil.show');
-
     Route::put('/api/paciente/perfil', [PacientePerfilController::class, 'update'])
         ->name('api.paciente.perfil.update');
 
@@ -59,32 +55,28 @@ Route::middleware(['auth'])->group(function () {
     // Recepción
     Route::put('/api/recepcion/citas/{id}/muestra-tomada', [CitaController::class, 'marcarMuestraTomada'])
         ->name('api.recepcion.citas.muestra-tomada');
-
-    // Recepcionista registra paciente presencial
     Route::post('/api/recepcion/registrar-paciente', [RecepcionRegistroPacienteController::class, 'store'])
         ->name('api.recepcion.registrar-paciente');
 
-    // Administrador crea usuario con cualquier rol
+    // Administrador: crear y EDITAR usuarios
     Route::post('/api/admin/registrar-usuario', [AdminRegistroUsuarioController::class, 'store'])
         ->name('api.admin.registrar-usuario');
+    Route::put('/api/admin/usuarios/{id}', [UsuarioController::class, 'update']) // NUEVO
+        ->name('api.admin.usuarios.update');
 
     // Laboratorio
     Route::get('/api/laboratorio/resultados-pendientes', [LaboratorioResultadoController::class, 'pendientes'])
         ->name('api.laboratorio.resultados-pendientes');
-
     Route::get('/api/laboratorio/resultados-formulario/{detalleOrdenId}', [LaboratorioResultadoController::class, 'formulario'])
         ->name('api.laboratorio.resultados-formulario');
-
     Route::post('/api/laboratorio/resultados', [LaboratorioResultadoController::class, 'store'])
         ->name('api.laboratorio.resultados.store');
 
     // Resultados paciente
     Route::get('/api/paciente/resultados', [PacienteResultadoController::class, 'index'])
         ->name('api.paciente.resultados.index');
-
     Route::get('/api/paciente/resultados/{id}', [PacienteResultadoController::class, 'show'])
         ->name('api.paciente.resultados.show');
-
     Route::get('/api/paciente/resultados/{id}/pdf', [PacienteResultadoController::class, 'pdf'])
         ->name('api.paciente.resultados.pdf');
 
