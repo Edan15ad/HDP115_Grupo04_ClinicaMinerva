@@ -58,17 +58,31 @@ const submit = () => {
     form.post('/login', {
         preserveScroll: true,
         onError: (errors) => {
-            loginError.value = traducirErrorLogin(
+            // Captura errores de validación y también el 429 que devuelve JSON
+            const mensaje =
                 errors.correo ||
-                errors.email ||
+                errors.email  ||
                 errors.password ||
                 errors.message ||
-                errors.error
-            );
+                errors.error  ||
+                '';
+            loginError.value = traducirErrorLogin(mensaje);
         },
         onFinish: () => form.reset('password'),
     });
 };
+
+// Capturar respuesta 429 que llega como HTTP directo (no como error de Inertia)
+if (typeof window !== 'undefined') {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+        const response = await originalFetch(...args);
+        if (response.status === 429) {
+            loginError.value = 'Demasiados intentos fallidos. Espera 1 minuto antes de intentarlo nuevamente.';
+        }
+        return response;
+    };
+}
 </script>
 
 <template>
@@ -217,4 +231,3 @@ const submit = () => {
         </div>
     </div>
 </template>
-    

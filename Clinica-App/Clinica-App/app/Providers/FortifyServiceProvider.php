@@ -11,16 +11,14 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-        //
-    }
+    public function register(): void {}
 
     public function boot(): void
     {
@@ -40,8 +38,8 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/Login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
-            'canRegister' => Features::enabled(Features::registration()),
-            'status' => $request->session()->get('status'),
+            'canRegister'      => Features::enabled(Features::registration()),
+            'status'           => $request->session()->get('status'),
         ]));
 
         Fortify::registerView(fn () => Inertia::render('auth/Register'));
@@ -60,7 +58,6 @@ class FortifyServiceProvider extends ServiceProvider
         ]));
 
         Fortify::twoFactorChallengeView(fn () => Inertia::render('auth/TwoFactorChallenge'));
-
         Fortify::confirmPasswordView(fn () => Inertia::render('auth/ConfirmPassword'));
     }
 
@@ -68,19 +65,23 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::authenticateUsing(function (Request $request) {
             $request->validate([
-                'correo' => ['required', 'email'],
+                'correo'   => ['required', 'email'],
                 'password' => ['required', 'string'],
             ]);
 
-            $usuario = Usuario::where('correo', $request->correo)
-                ->where('estado', 'activo')
-                ->first();
+            $usuario = Usuario::where('correo', $request->correo)->first();
 
-            if ($usuario && Hash::check($request->password, $usuario->password)) {
-                return $usuario;
+            if (!$usuario || !Hash::check($request->password, $usuario->password)) {
+                return null;
             }
 
-            return null;
+            if ($usuario->estado === 'inactivo') {
+                throw ValidationException::withMessages([
+                    'correo' => 'Tu cuenta está inactiva. Por favor contacta al soporte de Clínica Minerva para activarla.',
+                ]);
+            }
+
+            return $usuario;
         });
     }
 
@@ -89,9 +90,14 @@ class FortifyServiceProvider extends ServiceProvider
         RateLimiter::for('login', function (Request $request) {
             $correo = (string) $request->input('correo');
 
-            return Limit::perMinute(5)->by(
-                Str::transliterate(Str::lower($correo).'|'.$request->ip())
-            );
+            return Limit::perMinute(10)
+                ->by(Str::transliterate(Str::lower($correo) . '|' . $request->ip()))
+                ->response(function (Request $request) {
+
+                    throw ValidationException::withMessages([
+                        'correo' => 'Demasiados intentos fallidos. Espera 1 minuto antes de intentarlo nuevamente.',
+                    ]);
+                });
         });
 
         RateLimiter::for('two-factor', function (Request $request) {

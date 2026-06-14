@@ -881,7 +881,13 @@ const validarUsuarioAntesDeGuardar = () => {
 };
 
 
+// Modo edición: false = crear nuevo, true = editar existente
+const editMode = ref(false);
+const usuarioEditandoId = ref(null);
+
 const abrirModalUsuario = () => {
+    editMode.value         = false;
+    usuarioEditandoId.value = null;
     modalUsuarioVisible.value = true;
     modalUsuarioSaving.value  = false;
     modalUsuarioError.value   = '';
@@ -895,33 +901,79 @@ const abrirModalUsuario = () => {
     };
 };
 
+const abrirEditarUsuario = (usuario) => {
+    editMode.value         = true;
+    usuarioEditandoId.value = usuario.id;
+    modalUsuarioVisible.value = true;
+    modalUsuarioSaving.value  = false;
+    modalUsuarioError.value   = '';
+    modalUsuarioMensaje.value = '';
+    showPassUsuario.value     = false;
+    showPassUsuarioConf.value = false;
+    // Cargar datos actuales del usuario en el form
+    formUsuario.value = {
+        nombre:   usuario.nombre   ?? '',
+        apellido: usuario.apellido ?? '',
+        correo:   usuario.correo   ?? '',
+        password: '',
+        password_confirmation: '',
+        rol:    usuario.rol    ?? '',
+        estado: usuario.estado ?? 'activo',
+        nombres: '', apellidos: '', dui: '', telefono: '', fecha_nacimiento: '', genero: '', direccion: '',
+    };
+};
+
 const guardarUsuario = async () => {
-    modalUsuarioError.value  = '';
+    modalUsuarioError.value   = '';
     modalUsuarioMensaje.value = '';
 
-    const errorValidacion = validarUsuarioAntesDeGuardar();
-    if (errorValidacion) {
-        modalUsuarioError.value = errorValidacion;
-        return;
+    // Validación básica
+    if (!String(formUsuario.value.nombre ?? '').trim())   { modalUsuarioError.value = 'El nombre es obligatorio.'; return; }
+    if (!String(formUsuario.value.apellido ?? '').trim()) { modalUsuarioError.value = 'El apellido es obligatorio.'; return; }
+    if (!String(formUsuario.value.correo ?? '').trim())   { modalUsuarioError.value = 'El correo es obligatorio.'; return; }
+    if (!editMode.value) {
+        // Solo al crear se valida contraseña y rol obligatorios
+        const errorValidacion = validarUsuarioAntesDeGuardar();
+        if (errorValidacion) { modalUsuarioError.value = errorValidacion; return; }
+    } else {
+        // Al editar, si escribió contraseña debe confirmarla
+        if (formUsuario.value.password && formUsuario.value.password !== formUsuario.value.password_confirmation) {
+            modalUsuarioError.value = 'Las contraseñas no coinciden.'; return;
+        }
     }
 
     modalUsuarioSaving.value = true;
 
     try {
-        const response = await axios.post('/api/admin/registrar-usuario', formUsuario.value);
+        let response;
+        if (editMode.value) {
+            // EDITAR usuario existente
+            response = await axios.put(`/api/admin/usuarios/${usuarioEditandoId.value}`, {
+                nombre:    formUsuario.value.nombre,
+                apellido:  formUsuario.value.apellido,
+                correo:    formUsuario.value.correo,
+                rol:       formUsuario.value.rol,
+                estado:    formUsuario.value.estado,
+                password:  formUsuario.value.password || undefined,
+            });
+        } else {
+            // CREAR nuevo usuario
+            response = await axios.post('/api/admin/registrar-usuario', formUsuario.value);
+        }
+
         if (response.data?.ok) {
-            modalUsuarioMensaje.value = response.data?.mensaje || 'Usuario creado correctamente.';
+            modalUsuarioMensaje.value = response.data?.mensaje || (editMode.value ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.');
             await fetchAll();
             setTimeout(() => { modalUsuarioVisible.value = false; }, 1200);
         } else {
-            modalUsuarioError.value = response.data?.mensaje || 'No se pudo crear el usuario.';
+            modalUsuarioError.value = response.data?.mensaje || 'No se pudo completar la operación.';
         }
     } catch (error) {
         const errors = error.response?.data?.errors;
         if (errors) {
             modalUsuarioError.value = Object.values(errors).flat()[0];
         } else {
-            modalUsuarioError.value = error.response?.data?.mensaje || 'Error al crear el usuario.';
+            modalUsuarioError.value = error.response?.data?.mensaje || 'Error al procesar la solicitud.';
         }
     } finally {
         modalUsuarioSaving.value = false;
@@ -1362,7 +1414,16 @@ const rolColor = (rol) => ({
                                     <option value="inactivo">Inactivo</option>
                                 </select>
                                 <Button label="Limpiar" icon="pi pi-filter-slash" severity="secondary" class="rounded-2xl!" @click="limpiarFiltros('usuarios')" />
-                                <Button label="Nuevo usuario" icon="pi pi-plus" class="rounded-2xl! bg-violet-600! text-white! hover:bg-violet-700! md:col-span-4 xl:col-span-1!" @click="abrirModalUsuario" />
+                                <button
+                                    type="button"
+                                    @click="abrirModalUsuario"
+                                    style="display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 20px; border-radius:12px; border:none; background:#7c3aed; color:white; font-size:13px; font-weight:700; cursor:pointer; outline:none; box-shadow:none; transition:background 0.2s; width:100%;"
+                                    onmouseover="this.style.background='#6d28d9'"
+                                    onmouseout="this.style.background='#7c3aed'"
+                                >
+                                    <i class="pi pi-plus" style="font-size:13px;"></i>
+                                    Nuevo usuario
+                                </button>
                             </div>
                         </div>
                     </template>
@@ -1379,6 +1440,20 @@ const rolColor = (rol) => ({
                             <Column field="estado" header="Estado">
                                 <template #body="{ data }">
                                     <span class="rounded-full px-3 py-1 text-xs font-bold" :class="badgeClass(data.estado)">{{ data.estado }}</span>
+                                </template>
+                            </Column>
+                            <Column header="Acciones" style="width:110px;">
+                                <template #body="{ data }">
+                                    <button
+                                        type="button"
+                                        @click="abrirEditarUsuario(data)"
+                                        style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:12px; border:none; background:#7c3aed; color:white; font-size:12px; font-weight:700; cursor:pointer; outline:none; box-shadow:none; transition:background 0.2s;"
+                                        onmouseover="this.style.background='#6d28d9'"
+                                        onmouseout="this.style.background='#7c3aed'"
+                                    >
+                                        <i class="pi pi-pen-to-square" style="font-size:12px;"></i>
+                                        Editar
+                                    </button>
                                 </template>
                             </Column>
                         </DataTable>
@@ -1587,8 +1662,8 @@ const rolColor = (rol) => ({
             </div>
         </Dialog>
 
-        <!-- ════ MODAL: Administrador crea nuevo usuario ════ -->
-        <Dialog v-model:visible="modalUsuarioVisible" modal header="Crear nuevo usuario" :style="{ width: 'min(600px, 95vw)' }" class="rounded-3xl">
+        <!-- ════ MODAL: Administrador crea/edita usuario ════ -->
+        <Dialog v-model:visible="modalUsuarioVisible" modal :header="editMode ? 'Editar usuario' : 'Crear nuevo usuario'" :style="{ width: 'min(600px, 95vw)' }" class="rounded-3xl">
             <div style="padding:4px 0;">
                 <div v-if="modalUsuarioMensaje" style="margin-bottom:16px; padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px;">
                     <i class="pi pi-check-circle"></i> {{ modalUsuarioMensaje }}
@@ -1618,11 +1693,16 @@ const rolColor = (rol) => ({
                                 </button>
                             </div>
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="mb-2 block text-xs font-bold text-slate-700">Estado inicial</label>
+                        <!-- Estado: solo visible al EDITAR -->
+                        <div v-if="editMode" class="md:col-span-2">
+                            <label class="mb-2 block text-xs font-bold text-slate-700">Estado de la cuenta</label>
                             <div class="flex gap-3">
-                                <button type="button" @click="formUsuario.estado = 'activo'" class="h-11 flex-1 rounded-2xl border-2 text-xs font-bold transition-all" :class="formUsuario.estado === 'activo' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500'">Activo</button>
-                                <button type="button" @click="formUsuario.estado = 'inactivo'" class="h-11 flex-1 rounded-2xl border-2 text-xs font-bold transition-all" :class="formUsuario.estado === 'inactivo' ? 'border-red-400 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-500'">Inactivo</button>
+                                <button type="button" @click="formUsuario.estado = 'activo'" class="h-11 flex-1 rounded-2xl border-2 text-xs font-bold transition-all" :class="formUsuario.estado === 'activo' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500'">
+                                    <span class="flex items-center justify-center gap-2"><i class="pi pi-check-circle"></i> Activo</span>
+                                </button>
+                                <button type="button" @click="formUsuario.estado = 'inactivo'" class="h-11 flex-1 rounded-2xl border-2 text-xs font-bold transition-all" :class="formUsuario.estado === 'inactivo' ? 'border-red-400 bg-red-50 text-red-600' : 'border-slate-200 bg-white text-slate-500'">
+                                    <span class="flex items-center justify-center gap-2"><i class="pi pi-ban"></i> Inactivo</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1633,9 +1713,13 @@ const rolColor = (rol) => ({
                         <span class="h-px flex-1 bg-slate-100"></span>Contraseña de acceso<span class="h-px flex-1 bg-slate-100"></span>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div><label class="mb-2 block text-xs font-bold text-slate-700">Contraseña <span class="text-red-500">*</span></label>
+                        <div>
+                            <label class="mb-2 block text-xs font-bold text-slate-700">
+                                Contraseña <span v-if="!editMode" class="text-red-500">*</span>
+                                <span v-if="editMode" class="text-slate-400 font-normal">(dejar vacío para no cambiar)</span>
+                            </label>
                             <div class="relative">
-                                <input v-model="formUsuario.password" :type="showPassUsuario ? 'text' : 'password'" required placeholder="Mínimo 6 caracteres" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
+                                <input v-model="formUsuario.password" :type="showPassUsuario ? 'text' : 'password'" :placeholder="editMode ? 'Nueva contraseña (opcional)' : 'Mínimo 6 caracteres'" class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 pr-12 text-sm font-bold text-slate-700 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-100" />
                                 <button type="button" @click="showPassUsuario = !showPassUsuario" class="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer border-none bg-transparent p-0 text-slate-400">
                                     <i :class="`pi ${showPassUsuario ? 'pi-eye-slash' : 'pi-eye'}`" style="font-size:16px;"></i></button></div></div>
                         <div><label class="mb-2 block text-xs font-bold text-slate-700">Confirmar contraseña <span class="text-red-500">*</span></label>
@@ -1648,7 +1732,7 @@ const rolColor = (rol) => ({
 
                 <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <Button label="Cancelar" icon="pi pi-times" severity="secondary" class="rounded-2xl!" :disabled="modalUsuarioSaving" @click="modalUsuarioVisible = false" />
-                    <Button label="Crear usuario" icon="pi pi-user-plus" :loading="modalUsuarioSaving" class="rounded-2xl! bg-violet-600! text-white! hover:bg-violet-700!" @click="guardarUsuario" />
+                    <Button :label="editMode ? 'Guardar cambios' : 'Crear usuario'" :icon="editMode ? 'pi pi-save' : 'pi pi-user-plus'" :loading="modalUsuarioSaving" class="rounded-2xl! bg-violet-600! text-white! hover:bg-violet-700!" @click="guardarUsuario" />
                 </div>
             </div>
         </Dialog>
